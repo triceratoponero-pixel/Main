@@ -1,12 +1,15 @@
+```lua
 local Library = {}
-
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
 
 local DEFAULTS = {
     AccentColor = Color3.fromRGB(100, 180, 255),
     DarkerAccent = Color3.fromRGB(70, 130, 220),
+    NeonAccent = Color3.fromRGB(120, 200, 255), -- New neon for highlights
     Background = Color3.fromRGB(18, 18, 22),
     Secondary = Color3.fromRGB(28, 28, 34),
     Tertiary = Color3.fromRGB(38, 38, 46),
@@ -17,6 +20,7 @@ local DEFAULTS = {
     StrokeThickness = 1.2,
     TweenSpeed = 0.22,
     Font = Enum.Font.Gotham,
+    ConfigFolder = "ModernUI_Configs", -- For save/load
 }
 
 -- // Utilities
@@ -37,11 +41,68 @@ local function create(class, props)
     return obj
 end
 
+-- // Notification System
+local NotificationHolder = create("ScreenGui", {
+    Name = "Notifications",
+    Parent = game.CoreGui,
+    IgnoreGuiInset = true
+})
+
+local NotificationList = create("Frame", {
+    Size = UDim2.new(0, 300, 1, 0),
+    Position = UDim2.new(1, -320, 0, 0),
+    BackgroundTransparency = 1,
+    Parent = NotificationHolder
+})
+
+create("UIListLayout", {
+    Padding = UDim.new(0, 10),
+    VerticalAlignment = Enum.VerticalAlignment.Bottom,
+    Parent = NotificationList
+})
+
+function Library:Notify(text, duration, callback)
+    duration = duration or 5
+    
+    local NotifFrame = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 50),
+        BackgroundColor3 = DEFAULTS.Secondary,
+        Parent = NotificationList
+    })
+    create("UICorner", {CornerRadius = DEFAULTS.CornerRadius, Parent = NotifFrame})
+    create("UIStroke", {Color = DEFAULTS.Stroke, Transparency = 0.5, Parent = NotifFrame})
+    
+    local Label = create("TextLabel", {
+        Size = UDim2.new(1, -10, 1, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = DEFAULTS.Text,
+        TextSize = 14,
+        Font = DEFAULTS.Font,
+        TextWrapped = true,
+        Parent = NotifFrame
+    })
+    
+    -- Animate in
+    NotifFrame.Position = UDim2.new(0, 50, 0, 0)
+    tween(NotifFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)})
+    
+    -- Auto dismiss
+    task.delay(duration, function()
+        tween(NotifFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Position = UDim2.new(0, 50, 0, 0)})
+        task.delay(0.3, function()
+            NotifFrame:Destroy()
+            if callback then callback() end
+        end)
+    end)
+end
+
 -- // Main Window
 function Library:CreateWindow(name)
     local Window = {}
     Window.Tabs = {}
     Window.CurrentTab = nil
+    Window.Configs = {} -- For save/load
     
     local ScreenGui = create("ScreenGui", {
         Name = "ModernUI_Lib",
@@ -155,10 +216,67 @@ function Library:CreateWindow(name)
         end
     end)
     
+    -- // Config System
+    function Window:LoadConfig(configName)
+        local success, data = pcall(function()
+            return HttpService:JSONDecode(readfile(DEFAULTS.ConfigFolder .. "/" .. configName .. ".json"))
+        end)
+        if success then
+            for tabName, tabData in pairs(data) do
+                local tab = self:FindTab(tabName)
+                if tab then
+                    for elemName, value in pairs(tabData) do
+                        local elem = tab:FindElement(elemName)
+                        if elem and elem.Set then
+                            elem.Set(value)
+                        end
+                    end
+                end
+            end
+            Library:Notify("Loaded config: " .. configName)
+        else
+            Library:Notify("Failed to load config: " .. configName)
+        end
+    end
+    
+    function Window:SaveConfig(configName)
+        local data = {}
+        for _, tab in pairs(self.Tabs) do
+            data[tab.name] = {}
+            for _, elem in pairs(tab.elements) do
+                if elem.Value then
+                    data[tab.name][elem.Name] = elem.Value()
+                end
+            end
+        end
+        local success = pcall(function()
+            if not isfolder(DEFAULTS.ConfigFolder) then
+                makefolder(DEFAULTS.ConfigFolder)
+            end
+            writefile(DEFAULTS.ConfigFolder .. "/" .. configName .. ".json", HttpService:JSONEncode(data))
+        end)
+        if success then
+            Library:Notify("Saved config: " .. configName)
+        else
+            Library:Notify("Failed to save config: " .. configName)
+        end
+    end
+    
+    function Window:FindTab(name)
+        for _, tab in pairs(self.Tabs) do
+            if tab.name == name then return tab end
+        end
+    end
+    
     -- // Tab System
-    function Window:CreateTab(name)
+    function Window:CreateTab(name, icon) -- Added icon param (asset id or url)
         local Tab = {}
         Tab.Elements = {}
+        Tab.FindElement = function(self, elemName)
+            for _, elem in pairs(self.Elements) do
+                if elem.Name == elemName then return elem end
+            end
+        end
         
         local TabButton = create("TextButton", {
             Size = UDim2.new(1, -12, 0, 42),
@@ -176,8 +294,21 @@ function Library:CreateWindow(name)
             Parent = TabButton
         })
         
-        create("TextLabel", {
-            Size = UDim2.new(1, -16, 1, 0),
+        local IconLabel = nil
+        if icon then
+            IconLabel = create("ImageLabel", {
+                Size = UDim2.new(0, 24, 0, 24),
+                Position = UDim2.new(0, 8, 0.5, -12),
+                BackgroundTransparency = 1,
+                Image = icon,
+                ImageColor3 = DEFAULTS.TextDim,
+                Parent = TabButton
+            })
+        end
+        
+        local TextLabel = create("TextLabel", {
+            Size = UDim2.new(1, icon and -40 or -16, 1, 0),
+            Position = UDim2.new(icon and 0.1 or 0, icon and 8 or 0, 0, 0),
             BackgroundTransparency = 1,
             Text = name:upper(),
             TextColor3 = DEFAULTS.TextDim,
@@ -212,12 +343,18 @@ function Library:CreateWindow(name)
                 tween(other.button.UIStroke, nil, {Transparency = 1})
                 tween(other.button, nil, {BackgroundColor3 = DEFAULTS.Tertiary})
                 tween(other.button.TextLabel, nil, {TextColor3 = DEFAULTS.TextDim})
+                if other.button.IconLabel then
+                    tween(other.button.IconLabel, nil, {ImageColor3 = DEFAULTS.TextDim})
+                end
                 other.content.Visible = false
             end
             
             tween(TabButton.UIStroke, nil, {Transparency = 0.25})
             tween(TabButton, nil, {BackgroundColor3 = DEFAULTS.Secondary})
-            tween(TabButton.TextLabel, nil, {TextColor3 = DEFAULTS.AccentColor})
+            tween(TextLabel, nil, {TextColor3 = DEFAULTS.AccentColor})
+            if IconLabel then
+                tween(IconLabel, nil, {ImageColor3 = DEFAULTS.AccentColor})
+            end
             ContentFolder.Visible = true
             
             Window.CurrentTab = Tab
@@ -226,12 +363,20 @@ function Library:CreateWindow(name)
         TabButton.MouseButton1Click:Connect(selectTab)
         TabButton.MouseEnter:Connect(function()
             if Window.CurrentTab ~= Tab then
-                tween(TabButton, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(38,38,48)})
+                tween(TabButton, TweenInfo.new(0.18), {BackgroundColor3 = DEFAULTS.NeonAccent}) -- Neon highlight
+                tween(TextLabel, TweenInfo.new(0.18), {TextColor3 = DEFAULTS.Text})
+                if IconLabel then
+                    tween(IconLabel, TweenInfo.new(0.18), {ImageColor3 = DEFAULTS.Text})
+                end
             end
         end)
         TabButton.MouseLeave:Connect(function()
             if Window.CurrentTab ~= Tab then
                 tween(TabButton, TweenInfo.new(0.18), {BackgroundColor3 = DEFAULTS.Tertiary})
+                tween(TextLabel, TweenInfo.new(0.18), {TextColor3 = DEFAULTS.TextDim})
+                if IconLabel then
+                    tween(IconLabel, TweenInfo.new(0.18), {ImageColor3 = DEFAULTS.TextDim})
+                end
             end
         end)
         
@@ -244,7 +389,9 @@ function Library:CreateWindow(name)
             name = name,
             button = TabButton,
             content = ContentFolder,
-            elements = Tab.Elements
+            elements = Tab.Elements,
+            IconLabel = IconLabel,
+            TextLabel = TextLabel
         })
         
         function Tab:Dropdown(text, options, default, callback)
@@ -253,6 +400,7 @@ function Library:CreateWindow(name)
             local isOpen = false
             
             local Frame = create("Frame", {
+                Name = text,
                 Size = UDim2.new(1, -20, 0, 38),
                 BackgroundColor3 = DEFAULTS.Secondary,
                 ClipsDescendants = true,
@@ -333,7 +481,7 @@ function Library:CreateWindow(name)
                     Size = UDim2.new(1,0,1,0),
                     BackgroundTransparency = 1,
                     Text = opt,
-                    TextColor3 = DEFAULTS.TextDim,
+                    TextColor3 = (opt == selected) and DEFAULTS.AccentColor or DEFAULTS.TextDim,
                     TextSize = 13,
                     Font = DEFAULTS.Font,
                     Parent = btn
@@ -346,7 +494,7 @@ function Library:CreateWindow(name)
                 
                 btn.MouseLeave:Connect(function()
                     tween(btn, TweenInfo.new(0.15), {BackgroundColor3 = DEFAULTS.Tertiary})
-                    tween(label, TweenInfo.new(0.15), {TextColor3 = DEFAULTS.TextDim})
+                    tween(label, TweenInfo.new(0.15), {TextColor3 = (opt == selected) and DEFAULTS.AccentColor or DEFAULTS.TextDim})
                 end)
                 
                 btn.MouseButton1Click:Connect(function()
@@ -364,17 +512,20 @@ function Library:CreateWindow(name)
                         ListFrame.Visible = false
                     end)
                     
+                    -- Update highlights
+                    for _, b in ipairs(optionButtons) do
+                        local lbl = b:FindFirstChildWhichIsA("TextLabel")
+                        if lbl then
+                            lbl.TextColor3 = (lbl.Text == opt) and DEFAULTS.AccentColor or DEFAULTS.TextDim
+                        end
+                    end
+                    
                     if callback then
                         callback(selected, index)
                     end
                 end)
                 
                 table.insert(optionButtons, btn)
-                
-                -- Highlight selected one
-                if opt == selected then
-                    label.TextColor3 = DEFAULTS.AccentColor
-                end
             end
             
             -- Populate options
@@ -388,12 +539,16 @@ function Library:CreateWindow(name)
                 
                 if isOpen then
                     ListFrame.Visible = true
-                    tween(Frame, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                        Size = UDim2.new(1, -20, 0, 38 + ListFrame.AbsoluteCanvasSize.Y + 12)
-                    })
-                    tween(ListFrame, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                        Size = UDim2.new(1, -8, 0, ListFrame.AbsoluteCanvasSize.Y + 8)
-                    })
+                    task.spawn(function()
+                        task.wait()
+                        local contentH = ListLayout.AbsoluteContentSize.Y + 8
+                        tween(Frame, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                            Size = UDim2.new(1, -20, 0, 38 + contentH + 4)
+                        })
+                        tween(ListFrame, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                            Size = UDim2.new(1, -8, 0, contentH)
+                        })
+                    end)
                     tween(Arrow, TweenInfo.new(0.22), {Rotation = 180})
                 else
                     tween(ListFrame, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
@@ -413,16 +568,14 @@ function Library:CreateWindow(name)
             end
             
             Frame.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or
                 input.UserInputType == Enum.UserInputType.Touch then
                     toggleDropdown()
                 end
             end)
             
             -- Public methods
-            function Dropdown:Get()
-                return selected
-            end
+            function Dropdown:Value() return selected end
             
             function Dropdown:Set(value)
                 if table.find(options, value) then
@@ -433,9 +586,7 @@ function Library:CreateWindow(name)
                     for _, btn in ipairs(optionButtons) do
                         local lbl = btn:FindFirstChildWhichIsA("TextLabel")
                         if lbl then
-                            lbl.TextColor3 = (btn.Text == "" and lbl.Text == value) 
-                                and DEFAULTS.AccentColor 
-                                or DEFAULTS.TextDim
+                            lbl.TextColor3 = (lbl.Text == value) and DEFAULTS.AccentColor or DEFAULTS.TextDim
                         end
                     end
                     
@@ -455,7 +606,9 @@ function Library:CreateWindow(name)
                 optionButtons = {}
                 
                 options = newOptions
-                selected = newOptions[1] or "Select..."
+                if not table.find(newOptions, selected) then
+                    selected = newOptions[1] or "Select..."
+                end
                 SelectedLabel.Text = text .. ": " .. selected
                 
                 for i, opt in ipairs(newOptions) do
@@ -468,12 +621,13 @@ function Library:CreateWindow(name)
                 Dropdown:Set(default)
             end
             
-            table.insert(Tab.Elements, Frame)
+            table.insert(Tab.Elements, Dropdown)
             return Dropdown
         end
         
         function Tab:Button(text, callback)
             local Button = create("TextButton", {
+                Name = text,
                 Size = UDim2.new(1, -20, 0, 38),
                 BackgroundColor3 = DEFAULTS.Secondary,
                 Text = "",
@@ -528,6 +682,7 @@ function Library:CreateWindow(name)
             local Value = default or false
             
             local Frame = create("Frame", {
+                Name = text,
                 Size = UDim2.new(1, -20, 0, 38),
                 BackgroundColor3 = DEFAULTS.Secondary,
                 Parent = ContentFolder
@@ -572,14 +727,14 @@ function Library:CreateWindow(name)
             
             updateVisual()
             
-            Toggle.Value = function() return Value end
-            Toggle.Set = function(v)
+            function Toggle:Value() return Value end
+            function Toggle:Set(v)
                 Value = v
                 updateVisual()
                 if callback then callback(Value) end
             end
             
-            table.insert(Tab.Elements, Frame)
+            table.insert(Tab.Elements, Toggle)
             return Toggle
         end
         
@@ -588,6 +743,7 @@ function Library:CreateWindow(name)
             local Value = default or min
             
             local Frame = create("Frame", {
+                Name = text,
                 Size = UDim2.new(1,-20,0,54),
                 BackgroundColor3 = DEFAULTS.Secondary,
                 Parent = ContentFolder
@@ -639,24 +795,30 @@ function Library:CreateWindow(name)
                 if callback then callback(Value) end
             end
             
-            local connection
+            local dragConnection
             Bar.InputBegan:Connect(function(input)
+                if not (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then return end
+                
+                updateSlider(input.Position.X)
+                
+                dragConnection = UserInputService.InputChanged:Connect(function(changed)
+                    if changed.UserInputType == Enum.UserInputType.MouseMovement or changed.UserInputType == Enum.UserInputType.Touch then
+                        updateSlider(changed.Position.X)
+                    end
+                end)
+            end)
+            
+            Bar.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    updateSlider(input.Position.X)
-                    connection = RunService.RenderStepped:Connect(function()
-                        updateSlider(UserInputService:GetMouseLocation().X)
-                    end)
+                    if dragConnection then
+                        dragConnection:Disconnect()
+                        dragConnection = nil
+                    end
                 end
             end)
             
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    if connection then connection:Disconnect() end
-                end
-            end)
-            
-            Slider.Value = function() return Value end
-            Slider.Set = function(v)
+            function Slider:Value() return Value end
+            function Slider:Set(v)
                 Value = math.clamp(v, min, max)
                 local percent = (Value - min) / (max - min)
                 tween(Fill, nil, {Size = UDim2.new(percent,0,1,0)})
@@ -664,12 +826,11 @@ function Library:CreateWindow(name)
                 if callback then callback(Value) end
             end
             
-            Slider.Set(default or min)
+            Slider:Set(default or min)
             
-            table.insert(Tab.Elements, Frame)
+            table.insert(Tab.Elements, Slider)
             return Slider
         end
-        
         
         
         return Tab
@@ -677,5 +838,5 @@ function Library:CreateWindow(name)
     
     return Window
 end
-
 return Library
+```
