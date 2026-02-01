@@ -1,6 +1,6 @@
 --[[ 
-    Aesthetix UI Library v4.0 (Layout Fix)
-    Fixed: Added a dedicated Header Bar so tabs can never cover the buttons.
+    Aesthetix UI Library v4.1 (Spacing Fix)
+    Fixed: Added more padding to Sidebar Tabs so the indicator bar doesn't overlap text.
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -15,7 +15,7 @@ local Library = {}
 local Theme = {
     Main = Color3.fromRGB(18, 18, 22),
     Sidebar = Color3.fromRGB(25, 25, 30),
-    Header = Color3.fromRGB(22, 22, 27), -- Slightly lighter for header
+    Header = Color3.fromRGB(22, 22, 27),
     Element = Color3.fromRGB(32, 32, 38),
     ElementStroke = Color3.fromRGB(50, 50, 60),
     Text = Color3.fromRGB(255, 255, 255),
@@ -63,7 +63,7 @@ function Library:CreateWindow(args)
     local Name = args.Name or "UI Library"
     
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "Aesthetixv4"
+    ScreenGui.Name = "Aesthetixv4.1"
     ScreenGui.Parent = RunService:IsStudio() and Players.LocalPlayer:WaitForChild("PlayerGui") or CoreGui
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -105,21 +105,19 @@ function Library:CreateWindow(args)
     MainStroke.Color = Theme.ElementStroke
     MainStroke.Thickness = 1.5
 
-    --// 3. Header Bar (New Dedicated Space)
+    --// 3. Header Bar
     local Header = Instance.new("Frame")
     Header.Name = "Header"
     Header.Parent = MainFrame
     Header.BackgroundColor3 = Theme.Header
-    Header.Size = UDim2.new(1, 0, 0, 40) -- Top 40px is RESERVED for this
+    Header.Size = UDim2.new(1, 0, 0, 40)
     Header.BorderSizePixel = 0
     Header.ZIndex = 5
     
-    -- Rounded Top Corners only workaround (we just round all, content covers bottom)
     local HeaderCorner = Instance.new("UICorner")
     HeaderCorner.CornerRadius = UDim.new(0, 10)
     HeaderCorner.Parent = Header
     
-    -- Flatten bottom of header
     local HeaderFix = Instance.new("Frame")
     HeaderFix.Parent = Header
     HeaderFix.BackgroundColor3 = Theme.Header
@@ -128,7 +126,7 @@ function Library:CreateWindow(args)
     HeaderFix.Size = UDim2.new(1, 0, 0, 5)
     HeaderFix.ZIndex = 5
 
-    -- Title in Header
+    -- Title
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Parent = Header
     TitleLabel.BackgroundTransparency = 1
@@ -141,7 +139,6 @@ function Library:CreateWindow(args)
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleLabel.ZIndex = 6
 
-    -- Header Divider Line
     local HeaderSep = Instance.new("Frame")
     HeaderSep.Parent = Header
     HeaderSep.BackgroundColor3 = Theme.ElementStroke
@@ -150,7 +147,7 @@ function Library:CreateWindow(args)
     HeaderSep.Size = UDim2.new(1, 0, 0, 1)
     HeaderSep.ZIndex = 7
 
-    --// 4. Close/Mini Buttons (Inside Header)
+    --// 4. Header Controls
     local BtnClose = Instance.new("TextButton")
     BtnClose.Parent = Header
     BtnClose.BackgroundTransparency = 1
@@ -173,20 +170,19 @@ function Library:CreateWindow(args)
     BtnMini.TextSize = 20
     BtnMini.ZIndex = 6
 
-    --// 5. Sidebar (Shifted Down)
+    --// 5. Sidebar
     local Sidebar = Instance.new("Frame")
     Sidebar.Name = "Sidebar"
     Sidebar.Parent = MainFrame
     Sidebar.BackgroundColor3 = Theme.Sidebar
-    Sidebar.Position = UDim2.new(0, 0, 0, 40) -- Starts BELOW header
-    Sidebar.Size = UDim2.new(0, 150, 1, -40)  -- Fills rest of height
+    Sidebar.Position = UDim2.new(0, 0, 0, 40)
+    Sidebar.Size = UDim2.new(0, 150, 1, -40)
     Sidebar.BorderSizePixel = 0
     Sidebar.ZIndex = 2
     
     local SidebarCorner = Instance.new("UICorner", Sidebar)
     SidebarCorner.CornerRadius = UDim.new(0, 10)
     
-    -- Fix corners so it fits with header/mainframe
     local SidebarFixTop = Instance.new("Frame")
     SidebarFixTop.Parent = Sidebar
     SidebarFixTop.BackgroundColor3 = Theme.Sidebar
@@ -215,16 +211,16 @@ function Library:CreateWindow(args)
     TabList.SortOrder = Enum.SortOrder.LayoutOrder
     TabList.Padding = UDim.new(0, 5)
 
-    --// 6. Content Container (Shifted Down)
+    --// 6. Content Container
     local Container = Instance.new("Frame")
     Container.Parent = MainFrame
     Container.BackgroundTransparency = 1
-    Container.Position = UDim2.new(0, 160, 0, 50) -- Starts BELOW header + padding
+    Container.Position = UDim2.new(0, 160, 0, 50)
     Container.Size = UDim2.new(1, -170, 1, -60)
     Container.ClipsDescendants = true
     Container.ZIndex = 1
 
-    --// Logic: Close Modal
+    --// Close Modal Logic
     local ModalBackdrop = Instance.new("Frame")
     ModalBackdrop.Parent = ScreenGui
     ModalBackdrop.BackgroundColor3 = Color3.new(0,0,0)
@@ -282,7 +278,6 @@ function Library:CreateWindow(args)
         ModalBackdrop.Visible = false
     end)
 
-    --// Button Logic
     BtnClose.MouseEnter:Connect(function() Tween(BtnClose, {TextColor3 = Theme.Red}, 0.2) end)
     BtnClose.MouseLeave:Connect(function() Tween(BtnClose, {TextColor3 = Theme.TextDim}, 0.2) end)
     BtnMini.MouseEnter:Connect(function() Tween(BtnMini, {TextColor3 = Theme.Accent}, 0.2) end)
@@ -310,7 +305,7 @@ function Library:CreateWindow(args)
         Tween(ModalBackdrop, {BackgroundTransparency = 0.5}, 0.3)
     end)
 
-    MakeDraggable(Header, MainFrame) -- Drag via Header now
+    MakeDraggable(Header, MainFrame)
 
     --// Notifications
     local NotifContainer = Instance.new("Frame")
@@ -374,7 +369,6 @@ function Library:CreateWindow(args)
         end)
     end
 
-    --// Tab System
     local Window = {}
     local FirstTab = true
 
@@ -391,9 +385,10 @@ function Library:CreateWindow(args)
         TabButton.TextXAlignment = Enum.TextXAlignment.Left
         TabButton.ZIndex = 3
         
+        -- // PADDING FIX: Increased from 20 to 30 to avoid overlap with bar //
         local TabPadding = Instance.new("UIPadding")
         TabPadding.Parent = TabButton
-        TabPadding.PaddingLeft = UDim.new(0, 20)
+        TabPadding.PaddingLeft = UDim.new(0, 30) 
 
         local Indicator = Instance.new("Frame")
         Indicator.Parent = TabButton
@@ -415,7 +410,7 @@ function Library:CreateWindow(args)
         Page.ScrollBarThickness = 3
         Page.ScrollBarImageColor3 = Theme.Accent
         Page.Visible = false 
-        Page.ZIndex = 2 -- Lower than Header
+        Page.ZIndex = 2 
         
         Page.CanvasSize = UDim2.new(0, 0, 0, 0)
         Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
