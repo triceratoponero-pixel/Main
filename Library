@@ -1,6 +1,6 @@
 --[[ 
-    Aesthetix UI Library v3.0
-    Minimizing, Safe Closing, and Modal Logic.
+    Aesthetix UI Library v3.1 (Fix)
+    Fixed: Close/Minimize buttons now appear on top of ALL tabs (ZIndex Fix).
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -68,12 +68,12 @@ function Library:CreateWindow(args)
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    --// 1. Minimized Button (Top Middle)
+    --// 1. Minimized Button (Pill)
     local MiniButton = Instance.new("TextButton")
     MiniButton.Name = "MiniButton"
     MiniButton.Parent = ScreenGui
     MiniButton.BackgroundColor3 = Theme.Main
-    MiniButton.Position = UDim2.new(0.5, -60, 0, -50) -- Start off screen
+    MiniButton.Position = UDim2.new(0.5, -60, 0, -50)
     MiniButton.Size = UDim2.new(0, 120, 0, 40)
     MiniButton.BorderSizePixel = 0
     MiniButton.Text = "Open Menu"
@@ -81,6 +81,7 @@ function Library:CreateWindow(args)
     MiniButton.TextColor3 = Theme.Accent
     MiniButton.TextSize = 14
     MiniButton.Visible = false
+    MiniButton.ZIndex = 100 -- Ensure pill is on top
 
     Instance.new("UICorner", MiniButton).CornerRadius = UDim.new(1, 0)
     local MiniStroke = Instance.new("UIStroke")
@@ -96,7 +97,7 @@ function Library:CreateWindow(args)
     MainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
     MainFrame.Size = UDim2.new(0, 600, 0, 400)
     MainFrame.BorderSizePixel = 0
-    MainFrame.ClipsDescendants = false -- Allow shadow/outline
+    MainFrame.ClipsDescendants = false 
     
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
     
@@ -112,7 +113,7 @@ function Library:CreateWindow(args)
     ModalBackdrop.BackgroundTransparency = 1
     ModalBackdrop.Size = UDim2.new(1, 0, 1, 0)
     ModalBackdrop.Visible = false
-    ModalBackdrop.ZIndex = 100
+    ModalBackdrop.ZIndex = 200 -- Highest priority
 
     local ModalFrame = Instance.new("Frame")
     ModalFrame.Parent = ModalBackdrop
@@ -159,11 +160,7 @@ function Library:CreateWindow(args)
     BtnNo.TextSize = 14
     Instance.new("UICorner", BtnNo).CornerRadius = UDim.new(0, 6)
 
-    -- Logic for Close Modal
-    BtnYes.MouseButton1Click:Connect(function()
-        ScreenGui:Destroy()
-    end)
-
+    BtnYes.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
     BtnNo.MouseButton1Click:Connect(function()
         Tween(ModalBackdrop, {BackgroundTransparency = 1}, 0.2)
         task.wait(0.2)
@@ -177,18 +174,15 @@ function Library:CreateWindow(args)
     Sidebar.BackgroundColor3 = Theme.Sidebar
     Sidebar.Size = UDim2.new(0, 150, 1, 0)
     Sidebar.BorderSizePixel = 0
+    Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
     
-    local SidebarCorner = Instance.new("UICorner", Sidebar)
-    SidebarCorner.CornerRadius = UDim.new(0, 10)
-    
-    local SidebarFix = Instance.new("Frame") -- Makes right side flat
+    local SidebarFix = Instance.new("Frame")
     SidebarFix.Parent = Sidebar
     SidebarFix.BackgroundColor3 = Theme.Sidebar
     SidebarFix.BorderSizePixel = 0
     SidebarFix.Position = UDim2.new(1, -10, 0, 0)
     SidebarFix.Size = UDim2.new(0, 10, 1, 0)
 
-    -- Title
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Parent = Sidebar
     TitleLabel.BackgroundTransparency = 1
@@ -207,7 +201,6 @@ function Library:CreateWindow(args)
     Sep.Position = UDim2.new(0, 15, 0, 55)
     Sep.Size = UDim2.new(1, -30, 0, 1)
 
-    -- Tab Container
     local TabContainer = Instance.new("ScrollingFrame")
     TabContainer.Parent = Sidebar
     TabContainer.BackgroundTransparency = 1
@@ -220,12 +213,21 @@ function Library:CreateWindow(args)
     TabList.SortOrder = Enum.SortOrder.LayoutOrder
     TabList.Padding = UDim.new(0, 5)
 
-    --// Control Buttons (Minimize / Close) in Top Right of MainFrame
+    --// Container (Right Side)
+    local Container = Instance.new("Frame")
+    Container.Parent = MainFrame
+    Container.BackgroundTransparency = 1
+    Container.Position = UDim2.new(0, 160, 0, 10)
+    Container.Size = UDim2.new(1, -170, 1, -20)
+    Container.ClipsDescendants = true
+
+    --// Control Buttons (FIXED ZINDEX)
     local ControlHolder = Instance.new("Frame")
     ControlHolder.Parent = MainFrame
     ControlHolder.BackgroundTransparency = 1
     ControlHolder.Position = UDim2.new(1, -70, 0, 15)
     ControlHolder.Size = UDim2.new(0, 60, 0, 25)
+    ControlHolder.ZIndex = 10 -- THIS IS THE FIX: Keeps buttons above everything
 
     local BtnClose = Instance.new("TextButton")
     BtnClose.Parent = ControlHolder
@@ -236,6 +238,7 @@ function Library:CreateWindow(args)
     BtnClose.Text = "X"
     BtnClose.TextColor3 = Theme.TextDim
     BtnClose.TextSize = 16
+    BtnClose.ZIndex = 11
 
     local BtnMini = Instance.new("TextButton")
     BtnMini.Parent = ControlHolder
@@ -246,38 +249,29 @@ function Library:CreateWindow(args)
     BtnMini.Text = "-"
     BtnMini.TextColor3 = Theme.TextDim
     BtnMini.TextSize = 20
+    BtnMini.ZIndex = 11
 
-    -- Hover Effects for Controls
     BtnClose.MouseEnter:Connect(function() Tween(BtnClose, {TextColor3 = Theme.Red}, 0.2) end)
     BtnClose.MouseLeave:Connect(function() Tween(BtnClose, {TextColor3 = Theme.TextDim}, 0.2) end)
     BtnMini.MouseEnter:Connect(function() Tween(BtnMini, {TextColor3 = Theme.Accent}, 0.2) end)
     BtnMini.MouseLeave:Connect(function() Tween(BtnMini, {TextColor3 = Theme.TextDim}, 0.2) end)
 
-    -- Functionality: Minimize
     BtnMini.MouseButton1Click:Connect(function()
-        -- Animate Window Out
-        Tween(MainFrame, {Size = UDim2.new(0, 600, 0, 0)}, 0.3) -- Shrink height
+        Tween(MainFrame, {Size = UDim2.new(0, 600, 0, 0)}, 0.3)
         task.wait(0.1)
         MainFrame.Visible = false
-        
-        -- Animate Button In
         MiniButton.Visible = true
         Tween(MiniButton, {Position = UDim2.new(0.5, -60, 0, 20)}, 0.4)
     end)
 
-    -- Functionality: Restore
     MiniButton.MouseButton1Click:Connect(function()
-        -- Button Out
         Tween(MiniButton, {Position = UDim2.new(0.5, -60, 0, -50)}, 0.3)
         task.wait(0.1)
         MiniButton.Visible = false
-
-        -- Window In
         MainFrame.Visible = true
         Tween(MainFrame, {Size = UDim2.new(0, 600, 0, 400)}, 0.3)
     end)
 
-    -- Functionality: Close
     BtnClose.MouseButton1Click:Connect(function()
         ModalBackdrop.Visible = true
         ModalBackdrop.BackgroundTransparency = 1
@@ -286,20 +280,13 @@ function Library:CreateWindow(args)
 
     MakeDraggable(Sidebar, MainFrame)
 
-    --// Container (Right Side)
-    local Container = Instance.new("Frame")
-    Container.Parent = MainFrame
-    Container.BackgroundTransparency = 1
-    Container.Position = UDim2.new(0, 160, 0, 10)
-    Container.Size = UDim2.new(1, -170, 1, -20)
-    Container.ClipsDescendants = true
-
     --// Notifications
     local NotifContainer = Instance.new("Frame")
     NotifContainer.Parent = ScreenGui
     NotifContainer.BackgroundTransparency = 1
     NotifContainer.Position = UDim2.new(1, -320, 1, -320)
     NotifContainer.Size = UDim2.new(0, 300, 0, 300)
+    NotifContainer.ZIndex = 50 -- Ensure notifs are on top
     
     local NotifLayout = Instance.new("UIListLayout")
     NotifLayout.Parent = NotifContainer
