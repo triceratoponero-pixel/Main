@@ -1,6 +1,9 @@
 --[[ 
-    Aesthetix UI Library v5.0 (Config System)
-    Added: Save/Load System, Textbox Element, and Flags.
+    Aesthetix UI Library v5.1 (EXPANDED & READABLE)
+    - Dropdown Fix (Separate Container)
+    - Config System (Save/Load)
+    - Layout Fix (Header)
+    - ZIndex Fix (Overlapping)
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -11,12 +14,14 @@ local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
 local Library = {}
-Library.Flags = {} -- Stores current values
-Library.Items = {} -- Stores element objects to update them visually
+Library.Flags = {} -- Stores the value of every element (for saving)
+Library.Items = {} -- Stores the update functions (for loading)
 
 --// Folder Setup for Configs
 local ConfigFolder = "AesthetixConfigs"
-if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
+if not isfolder(ConfigFolder) then 
+    makefolder(ConfigFolder) 
+end
 
 --// Aesthetic Configuration
 local Theme = {
@@ -27,7 +32,7 @@ local Theme = {
     ElementStroke = Color3.fromRGB(50, 50, 60),
     Text = Color3.fromRGB(255, 255, 255),
     TextDim = Color3.fromRGB(160, 160, 160),
-    Accent = Color3.fromRGB(140, 80, 255),
+    Accent = Color3.fromRGB(140, 80, 255), -- Violet
     Red = Color3.fromRGB(255, 80, 80)
 }
 
@@ -46,7 +51,9 @@ local function MakeDraggable(topbarobject, object)
             StartPosition = object.Position
 
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then Dragging = false end
+                if input.UserInputState == Enum.UserInputState.End then 
+                    Dragging = false 
+                end
             end)
         end
     end)
@@ -65,7 +72,7 @@ local function MakeDraggable(topbarobject, object)
     end)
 end
 
---// Config Functions
+--// Config System Logic
 function Library:SaveConfig(name)
     local json = HttpService:JSONEncode(Library.Flags)
     writefile(ConfigFolder .. "/" .. name .. ".json", json)
@@ -79,7 +86,7 @@ function Library:LoadConfig(name)
         
         for flag, value in pairs(data) do
             if Library.Items[flag] then
-                Library.Items[flag](value) -- Call the update function for that element
+                Library.Items[flag](value) -- Calls the update function for the element
             end
         end
         Library:Notify("Config", "Loaded configuration: " .. name, 2)
@@ -88,17 +95,17 @@ function Library:LoadConfig(name)
     end
 end
 
---// Main Window Logic
+--// Main Window Creation
 function Library:CreateWindow(args)
     local Name = args.Name or "UI Library"
     
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "Aesthetixv5"
+    ScreenGui.Name = "Aesthetixv5.1"
     ScreenGui.Parent = RunService:IsStudio() and Players.LocalPlayer:WaitForChild("PlayerGui") or CoreGui
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    -- Minimized Pill
+    --// 1. Minimized Button (Pill)
     local MiniButton = Instance.new("TextButton")
     MiniButton.Name = "MiniButton"
     MiniButton.Parent = ScreenGui
@@ -112,13 +119,14 @@ function Library:CreateWindow(args)
     MiniButton.TextSize = 14
     MiniButton.Visible = false
     MiniButton.ZIndex = 100
+
     Instance.new("UICorner", MiniButton).CornerRadius = UDim.new(1, 0)
     local MiniStroke = Instance.new("UIStroke")
     MiniStroke.Parent = MiniButton
     MiniStroke.Color = Theme.Accent
     MiniStroke.Thickness = 1.5
 
-    -- Main Frame
+    --// 2. Main Window
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Parent = ScreenGui
@@ -127,19 +135,22 @@ function Library:CreateWindow(args)
     MainFrame.Size = UDim2.new(0, 600, 0, 400)
     MainFrame.BorderSizePixel = 0
     MainFrame.ClipsDescendants = true 
+    
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
     local MainStroke = Instance.new("UIStroke")
     MainStroke.Parent = MainFrame
     MainStroke.Color = Theme.ElementStroke
     MainStroke.Thickness = 1.5
 
-    -- Header
+    --// 3. Header Bar
     local Header = Instance.new("Frame")
+    Header.Name = "Header"
     Header.Parent = MainFrame
     Header.BackgroundColor3 = Theme.Header
     Header.Size = UDim2.new(1, 0, 0, 40)
     Header.BorderSizePixel = 0
     Header.ZIndex = 5
+    
     Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 10)
     
     local HeaderFix = Instance.new("Frame")
@@ -150,6 +161,7 @@ function Library:CreateWindow(args)
     HeaderFix.Size = UDim2.new(1, 0, 0, 5)
     HeaderFix.ZIndex = 5
 
+    -- Title
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Parent = Header
     TitleLabel.BackgroundTransparency = 1
@@ -170,7 +182,7 @@ function Library:CreateWindow(args)
     HeaderSep.Size = UDim2.new(1, 0, 0, 1)
     HeaderSep.ZIndex = 7
 
-    -- Controls
+    --// 4. Header Controls
     local BtnClose = Instance.new("TextButton")
     BtnClose.Parent = Header
     BtnClose.BackgroundTransparency = 1
@@ -193,14 +205,16 @@ function Library:CreateWindow(args)
     BtnMini.TextSize = 20
     BtnMini.ZIndex = 6
 
-    -- Sidebar
+    --// 5. Sidebar
     local Sidebar = Instance.new("Frame")
+    Sidebar.Name = "Sidebar"
     Sidebar.Parent = MainFrame
     Sidebar.BackgroundColor3 = Theme.Sidebar
     Sidebar.Position = UDim2.new(0, 0, 0, 40)
     Sidebar.Size = UDim2.new(0, 150, 1, -40)
     Sidebar.BorderSizePixel = 0
     Sidebar.ZIndex = 2
+    
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
     
     local SidebarFixTop = Instance.new("Frame")
@@ -231,7 +245,7 @@ function Library:CreateWindow(args)
     TabList.SortOrder = Enum.SortOrder.LayoutOrder
     TabList.Padding = UDim.new(0, 5)
 
-    -- Content
+    --// 6. Content Container
     local Container = Instance.new("Frame")
     Container.Parent = MainFrame
     Container.BackgroundTransparency = 1
@@ -240,13 +254,14 @@ function Library:CreateWindow(args)
     Container.ClipsDescendants = true
     Container.ZIndex = 1
 
-    -- Notifications
+    --// Notifications
     local NotifContainer = Instance.new("Frame")
     NotifContainer.Parent = ScreenGui
     NotifContainer.BackgroundTransparency = 1
     NotifContainer.Position = UDim2.new(1, -320, 1, -320)
     NotifContainer.Size = UDim2.new(0, 300, 0, 300)
     NotifContainer.ZIndex = 50
+    
     local NotifLayout = Instance.new("UIListLayout")
     NotifLayout.Parent = NotifContainer
     NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -301,7 +316,7 @@ function Library:CreateWindow(args)
         end)
     end
 
-    -- Close/Mini Logic
+    --// Close Modal Logic
     local ModalBackdrop = Instance.new("Frame")
     ModalBackdrop.Parent = ScreenGui
     ModalBackdrop.BackgroundColor3 = Color3.new(0,0,0)
@@ -352,6 +367,7 @@ function Library:CreateWindow(args)
     BtnNo.TextSize = 14
     Instance.new("UICorner", BtnNo).CornerRadius = UDim.new(0, 6)
 
+    -- Modal Events
     BtnYes.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
     BtnNo.MouseButton1Click:Connect(function()
         Tween(ModalBackdrop, {BackgroundTransparency = 1}, 0.2)
@@ -364,6 +380,7 @@ function Library:CreateWindow(args)
         Tween(ModalBackdrop, {BackgroundTransparency = 0.5}, 0.3)
     end)
 
+    -- Header Button Events
     BtnMini.MouseButton1Click:Connect(function()
         Tween(MainFrame, {Size = UDim2.new(0, 600, 0, 0)}, 0.3)
         task.wait(0.1)
@@ -381,6 +398,7 @@ function Library:CreateWindow(args)
 
     MakeDraggable(Header, MainFrame)
 
+    --// Tab System
     local Window = {}
     local FirstTab = true
 
@@ -452,6 +470,7 @@ function Library:CreateWindow(args)
 
         local TabFunctions = {}
 
+        -- BUTTON
         function TabFunctions:Button(text, callback)
             local ButtonFrame = Instance.new("Frame")
             ButtonFrame.Parent = Page
@@ -489,7 +508,7 @@ function Library:CreateWindow(args)
             end)
         end
 
-        -- NEW ELEMENT: Textbox
+        -- TEXTBOX
         function TabFunctions:Textbox(text, placeholder, clear, callback)
             local Bg = Instance.new("Frame")
             Bg.Parent = Page
@@ -539,6 +558,7 @@ function Library:CreateWindow(args)
             end)
         end
 
+        -- TOGGLE
         function TabFunctions:Toggle(text, default, flag, callback)
             local toggled = default or false
             Library.Flags[flag or text] = toggled -- Save default
@@ -598,11 +618,12 @@ function Library:CreateWindow(args)
                 pcall(callback, toggled)
             end
 
-            Library.Items[flag or text] = Update -- Store update function for Configs
+            Library.Items[flag or text] = Update -- Store update function
 
             Trigger.MouseButton1Click:Connect(function() Update(not toggled) end)
         end
 
+        -- SLIDER
         function TabFunctions:Slider(text, min, max, default, flag, callback)
             local value = default or min
             Library.Flags[flag or text] = value
@@ -670,7 +691,7 @@ function Library:CreateWindow(args)
                 pcall(callback, value)
             end
             
-            Library.Items[flag or text] = Update -- Store for Config Load
+            Library.Items[flag or text] = Update
 
             local isDragging = false
             Trigger.InputBegan:Connect(function(input)
@@ -691,10 +712,13 @@ function Library:CreateWindow(args)
             end)
         end
 
+        -- DROPDOWN (Fixed Logic)
         function TabFunctions:Dropdown(text, list, flag, callback)
-            Library.Flags[flag or text] = list[1] -- Default to first item
-            
+            list = list or {}
+            Library.Flags[flag or text] = list[1]
             local dropped = false
+            
+            -- FIX: The Container logic is rewritten here
             local Frame = Instance.new("Frame")
             Frame.Parent = Page
             Frame.BackgroundColor3 = Theme.Element
@@ -707,13 +731,14 @@ function Library:CreateWindow(args)
             Stroke.Color = Theme.ElementStroke
             Stroke.Thickness = 1
 
+            -- Header Elements (Manual Position)
             local Title = Instance.new("TextLabel")
             Title.Parent = Frame
             Title.BackgroundTransparency = 1
             Title.Position = UDim2.new(0, 12, 0, 0)
             Title.Size = UDim2.new(0.8, 0, 0, 38)
             Title.Font = Enum.Font.GothamBold
-            Title.Text = text .. ": " .. list[1]
+            Title.Text = text .. ": " .. (list[1] or "...")
             Title.TextColor3 = Theme.Text
             Title.TextSize = 13
             Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -734,14 +759,23 @@ function Library:CreateWindow(args)
             Trigger.Size = UDim2.new(1, 0, 0, 38)
             Trigger.Text = ""
             Trigger.ZIndex = 3
+
+            -- Item Container (List Layout)
+            local ItemContainer = Instance.new("Frame")
+            ItemContainer.Parent = Frame
+            ItemContainer.BackgroundTransparency = 1
+            ItemContainer.Position = UDim2.new(0, 0, 0, 38)
+            ItemContainer.Size = UDim2.new(1, 0, 1, -38)
+            ItemContainer.ZIndex = 2
             
             local ItemList = Instance.new("UIListLayout")
-            ItemList.Parent = Frame
+            ItemList.Parent = ItemContainer
             ItemList.SortOrder = Enum.SortOrder.LayoutOrder
             ItemList.Padding = UDim.new(0, 2)
+            
             local ItemPad = Instance.new("UIPadding")
-            ItemPad.Parent = Frame
-            ItemPad.PaddingTop = UDim.new(0, 42)
+            ItemPad.Parent = ItemContainer
+            ItemPad.PaddingTop = UDim.new(0, 5)
             ItemPad.PaddingLeft = UDim.new(0, 5)
             ItemPad.PaddingRight = UDim.new(0, 5)
             ItemPad.PaddingBottom = UDim.new(0, 5)
@@ -750,7 +784,6 @@ function Library:CreateWindow(args)
                 Title.Text = text .. ": " .. val
                 Library.Flags[flag or text] = val
                 pcall(callback, val)
-                -- Close
                 dropped = false
                 Tween(Frame, {Size = UDim2.new(1, 0, 0, 38)}, 0.2)
                 Tween(Arrow, {Rotation = 0, ImageColor3 = Theme.TextDim}, 0.2)
@@ -761,7 +794,7 @@ function Library:CreateWindow(args)
             for _, value in pairs(list) do
                 local Item = Instance.new("TextButton")
                 Item.Name = "Item"
-                Item.Parent = Frame
+                Item.Parent = ItemContainer
                 Item.BackgroundColor3 = Theme.Main
                 Item.Size = UDim2.new(1, 0, 0, 30)
                 Item.Font = Enum.Font.GothamMedium
@@ -784,7 +817,7 @@ function Library:CreateWindow(args)
                 dropped = not dropped
                 if dropped then
                     local count = #list
-                    Tween(Frame, {Size = UDim2.new(1, 0, 0, 42 + (count * 32) + 5)}, 0.2)
+                    Tween(Frame, {Size = UDim2.new(1, 0, 0, 38 + (count * 32) + 10)}, 0.2)
                     Tween(Arrow, {Rotation = 180, ImageColor3 = Theme.Accent}, 0.2)
                 else
                     Tween(Frame, {Size = UDim2.new(1, 0, 0, 38)}, 0.2)
@@ -795,7 +828,6 @@ function Library:CreateWindow(args)
 
         return TabFunctions
     end
-
     return Window
 end
 
