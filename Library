@@ -1,6 +1,6 @@
 --[[ 
-    Aesthetix UI Library v3.1 (Fix)
-    Fixed: Close/Minimize buttons now appear on top of ALL tabs (ZIndex Fix).
+    Aesthetix UI Library v4.0 (Layout Fix)
+    Fixed: Added a dedicated Header Bar so tabs can never cover the buttons.
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -15,12 +15,13 @@ local Library = {}
 local Theme = {
     Main = Color3.fromRGB(18, 18, 22),
     Sidebar = Color3.fromRGB(25, 25, 30),
+    Header = Color3.fromRGB(22, 22, 27), -- Slightly lighter for header
     Element = Color3.fromRGB(32, 32, 38),
     ElementStroke = Color3.fromRGB(50, 50, 60),
     Text = Color3.fromRGB(255, 255, 255),
     TextDim = Color3.fromRGB(160, 160, 160),
     Accent = Color3.fromRGB(140, 80, 255), -- Violet
-    Red = Color3.fromRGB(255, 80, 80)      -- For Close Button
+    Red = Color3.fromRGB(255, 80, 80)
 }
 
 --// Utility: Smooth Tween
@@ -58,12 +59,11 @@ local function MakeDraggable(topbarobject, object)
     end)
 end
 
---// Main Library Logic
 function Library:CreateWindow(args)
     local Name = args.Name or "UI Library"
     
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "Aesthetixv3"
+    ScreenGui.Name = "Aesthetixv4"
     ScreenGui.Parent = RunService:IsStudio() and Players.LocalPlayer:WaitForChild("PlayerGui") or CoreGui
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -81,7 +81,7 @@ function Library:CreateWindow(args)
     MiniButton.TextColor3 = Theme.Accent
     MiniButton.TextSize = 14
     MiniButton.Visible = false
-    MiniButton.ZIndex = 100 -- Ensure pill is on top
+    MiniButton.ZIndex = 100
 
     Instance.new("UICorner", MiniButton).CornerRadius = UDim.new(1, 0)
     local MiniStroke = Instance.new("UIStroke")
@@ -97,37 +97,152 @@ function Library:CreateWindow(args)
     MainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
     MainFrame.Size = UDim2.new(0, 600, 0, 400)
     MainFrame.BorderSizePixel = 0
-    MainFrame.ClipsDescendants = false 
+    MainFrame.ClipsDescendants = true 
     
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
-    
     local MainStroke = Instance.new("UIStroke")
     MainStroke.Parent = MainFrame
     MainStroke.Color = Theme.ElementStroke
     MainStroke.Thickness = 1.5
 
-    --// 3. Close Confirmation Modal
+    --// 3. Header Bar (New Dedicated Space)
+    local Header = Instance.new("Frame")
+    Header.Name = "Header"
+    Header.Parent = MainFrame
+    Header.BackgroundColor3 = Theme.Header
+    Header.Size = UDim2.new(1, 0, 0, 40) -- Top 40px is RESERVED for this
+    Header.BorderSizePixel = 0
+    Header.ZIndex = 5
+    
+    -- Rounded Top Corners only workaround (we just round all, content covers bottom)
+    local HeaderCorner = Instance.new("UICorner")
+    HeaderCorner.CornerRadius = UDim.new(0, 10)
+    HeaderCorner.Parent = Header
+    
+    -- Flatten bottom of header
+    local HeaderFix = Instance.new("Frame")
+    HeaderFix.Parent = Header
+    HeaderFix.BackgroundColor3 = Theme.Header
+    HeaderFix.BorderSizePixel = 0
+    HeaderFix.Position = UDim2.new(0, 0, 1, -5)
+    HeaderFix.Size = UDim2.new(1, 0, 0, 5)
+    HeaderFix.ZIndex = 5
+
+    -- Title in Header
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Parent = Header
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+    TitleLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    TitleLabel.Font = Enum.Font.GothamBlack
+    TitleLabel.Text = Name
+    TitleLabel.TextColor3 = Theme.Text
+    TitleLabel.TextSize = 16
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.ZIndex = 6
+
+    -- Header Divider Line
+    local HeaderSep = Instance.new("Frame")
+    HeaderSep.Parent = Header
+    HeaderSep.BackgroundColor3 = Theme.ElementStroke
+    HeaderSep.BorderSizePixel = 0
+    HeaderSep.Position = UDim2.new(0, 0, 1, -1)
+    HeaderSep.Size = UDim2.new(1, 0, 0, 1)
+    HeaderSep.ZIndex = 7
+
+    --// 4. Close/Mini Buttons (Inside Header)
+    local BtnClose = Instance.new("TextButton")
+    BtnClose.Parent = Header
+    BtnClose.BackgroundTransparency = 1
+    BtnClose.Position = UDim2.new(1, -35, 0, 5)
+    BtnClose.Size = UDim2.new(0, 30, 0, 30)
+    BtnClose.Font = Enum.Font.GothamBold
+    BtnClose.Text = "X"
+    BtnClose.TextColor3 = Theme.TextDim
+    BtnClose.TextSize = 16
+    BtnClose.ZIndex = 6
+
+    local BtnMini = Instance.new("TextButton")
+    BtnMini.Parent = Header
+    BtnMini.BackgroundTransparency = 1
+    BtnMini.Position = UDim2.new(1, -70, 0, 5)
+    BtnMini.Size = UDim2.new(0, 30, 0, 30)
+    BtnMini.Font = Enum.Font.GothamBold
+    BtnMini.Text = "-"
+    BtnMini.TextColor3 = Theme.TextDim
+    BtnMini.TextSize = 20
+    BtnMini.ZIndex = 6
+
+    --// 5. Sidebar (Shifted Down)
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Name = "Sidebar"
+    Sidebar.Parent = MainFrame
+    Sidebar.BackgroundColor3 = Theme.Sidebar
+    Sidebar.Position = UDim2.new(0, 0, 0, 40) -- Starts BELOW header
+    Sidebar.Size = UDim2.new(0, 150, 1, -40)  -- Fills rest of height
+    Sidebar.BorderSizePixel = 0
+    Sidebar.ZIndex = 2
+    
+    local SidebarCorner = Instance.new("UICorner", Sidebar)
+    SidebarCorner.CornerRadius = UDim.new(0, 10)
+    
+    -- Fix corners so it fits with header/mainframe
+    local SidebarFixTop = Instance.new("Frame")
+    SidebarFixTop.Parent = Sidebar
+    SidebarFixTop.BackgroundColor3 = Theme.Sidebar
+    SidebarFixTop.BorderSizePixel = 0
+    SidebarFixTop.Size = UDim2.new(1, 0, 0, 10)
+    SidebarFixTop.ZIndex = 2
+    
+    local SidebarFixRight = Instance.new("Frame")
+    SidebarFixRight.Parent = Sidebar
+    SidebarFixRight.BackgroundColor3 = Theme.Sidebar
+    SidebarFixRight.BorderSizePixel = 0
+    SidebarFixRight.Position = UDim2.new(1, -5, 0, 0)
+    SidebarFixRight.Size = UDim2.new(0, 5, 1, 0)
+    SidebarFixRight.ZIndex = 2
+
+    local TabContainer = Instance.new("ScrollingFrame")
+    TabContainer.Parent = Sidebar
+    TabContainer.BackgroundTransparency = 1
+    TabContainer.Position = UDim2.new(0, 0, 0, 10)
+    TabContainer.Size = UDim2.new(1, 0, 1, -10)
+    TabContainer.ScrollBarThickness = 0
+    TabContainer.ZIndex = 3
+    
+    local TabList = Instance.new("UIListLayout")
+    TabList.Parent = TabContainer
+    TabList.SortOrder = Enum.SortOrder.LayoutOrder
+    TabList.Padding = UDim.new(0, 5)
+
+    --// 6. Content Container (Shifted Down)
+    local Container = Instance.new("Frame")
+    Container.Parent = MainFrame
+    Container.BackgroundTransparency = 1
+    Container.Position = UDim2.new(0, 160, 0, 50) -- Starts BELOW header + padding
+    Container.Size = UDim2.new(1, -170, 1, -60)
+    Container.ClipsDescendants = true
+    Container.ZIndex = 1
+
+    --// Logic: Close Modal
     local ModalBackdrop = Instance.new("Frame")
     ModalBackdrop.Parent = ScreenGui
     ModalBackdrop.BackgroundColor3 = Color3.new(0,0,0)
     ModalBackdrop.BackgroundTransparency = 1
     ModalBackdrop.Size = UDim2.new(1, 0, 1, 0)
     ModalBackdrop.Visible = false
-    ModalBackdrop.ZIndex = 200 -- Highest priority
+    ModalBackdrop.ZIndex = 200
 
     local ModalFrame = Instance.new("Frame")
     ModalFrame.Parent = ModalBackdrop
     ModalFrame.BackgroundColor3 = Theme.Main
     ModalFrame.Position = UDim2.new(0.5, -125, 0.5, -60)
     ModalFrame.Size = UDim2.new(0, 250, 0, 120)
-    ModalFrame.BorderSizePixel = 0
-    
     Instance.new("UICorner", ModalFrame).CornerRadius = UDim.new(0, 10)
     local ModalStroke = Instance.new("UIStroke")
     ModalStroke.Parent = ModalFrame
     ModalStroke.Color = Theme.Red
-    ModalStroke.Thickness = 1
-
+    
     local ModalText = Instance.new("TextLabel")
     ModalText.Parent = ModalFrame
     ModalText.BackgroundTransparency = 1
@@ -167,90 +282,7 @@ function Library:CreateWindow(args)
         ModalBackdrop.Visible = false
     end)
 
-    --// Sidebar
-    local Sidebar = Instance.new("Frame")
-    Sidebar.Name = "Sidebar"
-    Sidebar.Parent = MainFrame
-    Sidebar.BackgroundColor3 = Theme.Sidebar
-    Sidebar.Size = UDim2.new(0, 150, 1, 0)
-    Sidebar.BorderSizePixel = 0
-    Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
-    
-    local SidebarFix = Instance.new("Frame")
-    SidebarFix.Parent = Sidebar
-    SidebarFix.BackgroundColor3 = Theme.Sidebar
-    SidebarFix.BorderSizePixel = 0
-    SidebarFix.Position = UDim2.new(1, -10, 0, 0)
-    SidebarFix.Size = UDim2.new(0, 10, 1, 0)
-
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Parent = Sidebar
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Position = UDim2.new(0, 15, 0, 15)
-    TitleLabel.Size = UDim2.new(1, -30, 0, 30)
-    TitleLabel.Font = Enum.Font.GothamBlack
-    TitleLabel.Text = Name
-    TitleLabel.TextColor3 = Theme.Text
-    TitleLabel.TextSize = 18
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-    local Sep = Instance.new("Frame")
-    Sep.Parent = Sidebar
-    Sep.BackgroundColor3 = Theme.ElementStroke
-    Sep.BorderSizePixel = 0
-    Sep.Position = UDim2.new(0, 15, 0, 55)
-    Sep.Size = UDim2.new(1, -30, 0, 1)
-
-    local TabContainer = Instance.new("ScrollingFrame")
-    TabContainer.Parent = Sidebar
-    TabContainer.BackgroundTransparency = 1
-    TabContainer.Position = UDim2.new(0, 0, 0, 65)
-    TabContainer.Size = UDim2.new(1, 0, 1, -75)
-    TabContainer.ScrollBarThickness = 0
-    
-    local TabList = Instance.new("UIListLayout")
-    TabList.Parent = TabContainer
-    TabList.SortOrder = Enum.SortOrder.LayoutOrder
-    TabList.Padding = UDim.new(0, 5)
-
-    --// Container (Right Side)
-    local Container = Instance.new("Frame")
-    Container.Parent = MainFrame
-    Container.BackgroundTransparency = 1
-    Container.Position = UDim2.new(0, 160, 0, 10)
-    Container.Size = UDim2.new(1, -170, 1, -20)
-    Container.ClipsDescendants = true
-
-    --// Control Buttons (FIXED ZINDEX)
-    local ControlHolder = Instance.new("Frame")
-    ControlHolder.Parent = MainFrame
-    ControlHolder.BackgroundTransparency = 1
-    ControlHolder.Position = UDim2.new(1, -70, 0, 15)
-    ControlHolder.Size = UDim2.new(0, 60, 0, 25)
-    ControlHolder.ZIndex = 10 -- THIS IS THE FIX: Keeps buttons above everything
-
-    local BtnClose = Instance.new("TextButton")
-    BtnClose.Parent = ControlHolder
-    BtnClose.BackgroundTransparency = 1
-    BtnClose.Position = UDim2.new(1, -25, 0, 0)
-    BtnClose.Size = UDim2.new(0, 25, 0, 25)
-    BtnClose.Font = Enum.Font.GothamBold
-    BtnClose.Text = "X"
-    BtnClose.TextColor3 = Theme.TextDim
-    BtnClose.TextSize = 16
-    BtnClose.ZIndex = 11
-
-    local BtnMini = Instance.new("TextButton")
-    BtnMini.Parent = ControlHolder
-    BtnMini.BackgroundTransparency = 1
-    BtnMini.Position = UDim2.new(1, -55, 0, 0)
-    BtnMini.Size = UDim2.new(0, 25, 0, 25)
-    BtnMini.Font = Enum.Font.GothamBold
-    BtnMini.Text = "-"
-    BtnMini.TextColor3 = Theme.TextDim
-    BtnMini.TextSize = 20
-    BtnMini.ZIndex = 11
-
+    --// Button Logic
     BtnClose.MouseEnter:Connect(function() Tween(BtnClose, {TextColor3 = Theme.Red}, 0.2) end)
     BtnClose.MouseLeave:Connect(function() Tween(BtnClose, {TextColor3 = Theme.TextDim}, 0.2) end)
     BtnMini.MouseEnter:Connect(function() Tween(BtnMini, {TextColor3 = Theme.Accent}, 0.2) end)
@@ -278,7 +310,7 @@ function Library:CreateWindow(args)
         Tween(ModalBackdrop, {BackgroundTransparency = 0.5}, 0.3)
     end)
 
-    MakeDraggable(Sidebar, MainFrame)
+    MakeDraggable(Header, MainFrame) -- Drag via Header now
 
     --// Notifications
     local NotifContainer = Instance.new("Frame")
@@ -286,7 +318,7 @@ function Library:CreateWindow(args)
     NotifContainer.BackgroundTransparency = 1
     NotifContainer.Position = UDim2.new(1, -320, 1, -320)
     NotifContainer.Size = UDim2.new(0, 300, 0, 300)
-    NotifContainer.ZIndex = 50 -- Ensure notifs are on top
+    NotifContainer.ZIndex = 50
     
     local NotifLayout = Instance.new("UIListLayout")
     NotifLayout.Parent = NotifContainer
@@ -342,6 +374,7 @@ function Library:CreateWindow(args)
         end)
     end
 
+    --// Tab System
     local Window = {}
     local FirstTab = true
 
@@ -356,6 +389,7 @@ function Library:CreateWindow(args)
         TabButton.TextColor3 = Theme.TextDim
         TabButton.TextSize = 13
         TabButton.TextXAlignment = Enum.TextXAlignment.Left
+        TabButton.ZIndex = 3
         
         local TabPadding = Instance.new("UIPadding")
         TabPadding.Parent = TabButton
@@ -367,6 +401,7 @@ function Library:CreateWindow(args)
         Indicator.Position = UDim2.new(0, 0, 0.2, 0)
         Indicator.Size = UDim2.new(0, 3, 0.6, 0)
         Indicator.Visible = false
+        Indicator.ZIndex = 3
         Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
 
         local Page = Instance.new("ScrollingFrame")
@@ -380,6 +415,7 @@ function Library:CreateWindow(args)
         Page.ScrollBarThickness = 3
         Page.ScrollBarImageColor3 = Theme.Accent
         Page.Visible = false 
+        Page.ZIndex = 2 -- Lower than Header
         
         Page.CanvasSize = UDim2.new(0, 0, 0, 0)
         Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -441,6 +477,7 @@ function Library:CreateWindow(args)
             Btn.Text = text
             Btn.TextColor3 = Theme.Text
             Btn.TextSize = 13
+            Btn.ZIndex = 2
             
             Btn.MouseEnter:Connect(function()
                 Tween(Stroke, {Color = Theme.Accent}, 0.2)
@@ -483,6 +520,7 @@ function Library:CreateWindow(args)
             Title.TextColor3 = Theme.Text
             Title.TextSize = 13
             Title.TextXAlignment = Enum.TextXAlignment.Left
+            Title.ZIndex = 2
 
             local ToggleBg = Instance.new("Frame")
             ToggleBg.Parent = ToggleFrame
@@ -503,6 +541,7 @@ function Library:CreateWindow(args)
             Trigger.BackgroundTransparency = 1
             Trigger.Size = UDim2.new(1, 0, 1, 0)
             Trigger.Text = ""
+            Trigger.ZIndex = 2
 
             Trigger.MouseButton1Click:Connect(function()
                 toggled = not toggled
@@ -541,6 +580,7 @@ function Library:CreateWindow(args)
             Title.TextColor3 = Theme.Text
             Title.TextSize = 13
             Title.TextXAlignment = Enum.TextXAlignment.Left
+            Title.ZIndex = 2
 
             local ValueLabel = Instance.new("TextLabel")
             ValueLabel.Parent = SliderFrame
@@ -552,6 +592,7 @@ function Library:CreateWindow(args)
             ValueLabel.TextColor3 = Theme.Accent
             ValueLabel.TextSize = 13
             ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            ValueLabel.ZIndex = 2
 
             local Bar = Instance.new("Frame")
             Bar.Parent = SliderFrame
@@ -571,6 +612,7 @@ function Library:CreateWindow(args)
             Trigger.BackgroundTransparency = 1
             Trigger.Size = UDim2.new(1, 0, 1, 0)
             Trigger.Text = ""
+            Trigger.ZIndex = 2
 
             local isDragging = false
             local function Update(input)
@@ -612,6 +654,7 @@ function Library:CreateWindow(args)
             Frame.Size = UDim2.new(1, 0, 0, 38)
             Frame.ClipsDescendants = true
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 6)
+            Frame.ZIndex = 2
             
             local Stroke = Instance.new("UIStroke")
             Stroke.Parent = Frame
@@ -628,6 +671,7 @@ function Library:CreateWindow(args)
             Title.TextColor3 = Theme.Text
             Title.TextSize = 13
             Title.TextXAlignment = Enum.TextXAlignment.Left
+            Title.ZIndex = 3
             
             local Arrow = Instance.new("ImageLabel")
             Arrow.Parent = Frame
@@ -636,12 +680,14 @@ function Library:CreateWindow(args)
             Arrow.Size = UDim2.new(0, 20, 0, 20)
             Arrow.Image = "rbxassetid://6034818372"
             Arrow.ImageColor3 = Theme.TextDim
+            Arrow.ZIndex = 3
 
             local Trigger = Instance.new("TextButton")
             Trigger.Parent = Frame
             Trigger.BackgroundTransparency = 1
             Trigger.Size = UDim2.new(1, 0, 0, 38)
             Trigger.Text = ""
+            Trigger.ZIndex = 3
             
             local ItemList = Instance.new("UIListLayout")
             ItemList.Parent = Frame
@@ -670,6 +716,7 @@ function Library:CreateWindow(args)
                     Item.Text = value
                     Item.TextColor3 = Theme.TextDim
                     Item.TextSize = 12
+                    Item.ZIndex = 3
                     Instance.new("UICorner", Item).CornerRadius = UDim.new(0, 4)
                     
                     Item.MouseEnter:Connect(function()
