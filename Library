@@ -311,14 +311,14 @@ function Nova.new(config)
     TitleLabel.Parent                 = TitleBar
 
     local UptimeTitleLabel = Instance.new("TextLabel")
-    UptimeTitleLabel.Size                   = UDim2.new(0, 130, 0, 18)
-    UptimeTitleLabel.Position               = UDim2.new(1, -176, 0.5, -9)
+    UptimeTitleLabel.Size                   = UDim2.new(0, 180, 0, 18)
+    UptimeTitleLabel.Position               = UDim2.new(0.5, -90, 0.5, -9)
     UptimeTitleLabel.BackgroundTransparency = 1
     UptimeTitleLabel.Text                   = "Uptime: 00:00:00"
     UptimeTitleLabel.TextColor3             = Theme.TextSecondary
     UptimeTitleLabel.TextSize               = 11
     UptimeTitleLabel.Font                   = Enum.Font.Gotham
-    UptimeTitleLabel.TextXAlignment         = Enum.TextXAlignment.Right
+    UptimeTitleLabel.TextXAlignment         = Enum.TextXAlignment.Center
     UptimeTitleLabel.ZIndex                 = 6
     UptimeTitleLabel.Parent                 = TitleBar
 
