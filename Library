@@ -310,18 +310,6 @@ function Nova.new(config)
     TitleLabel.ZIndex                 = 6
     TitleLabel.Parent                 = TitleBar
 
-    local UptimeTitleLabel = Instance.new("TextLabel")
-    UptimeTitleLabel.Size                   = UDim2.new(0, 180, 0, 18)
-    UptimeTitleLabel.Position               = UDim2.new(0.5, -90, 0.5, -9)
-    UptimeTitleLabel.BackgroundTransparency = 1
-    UptimeTitleLabel.Text                   = "Uptime: 00:00:00"
-    UptimeTitleLabel.TextColor3             = Theme.TextSecondary
-    UptimeTitleLabel.TextSize               = 11
-    UptimeTitleLabel.Font                   = Enum.Font.Gotham
-    UptimeTitleLabel.TextXAlignment         = Enum.TextXAlignment.Center
-    UptimeTitleLabel.ZIndex                 = 6
-    UptimeTitleLabel.Parent                 = TitleBar
-
     local function MakeWinBtn(rightOffset, col, hoverCol, symbol)
         local btn = Instance.new("TextButton")
         btn.Size             = UDim2.new(0, 22, 0, 22)
@@ -579,18 +567,12 @@ function Nova:_BuildLeftPanelStats()
     for i = 1, sampleCount do fpsSamples[i] = 60 end
     fpsSum = 60 * sampleCount
 
-    local lastUptimeUpdate = 0
     local coreMetricsConn = RunService.Heartbeat:Connect(function(dt)
         fpsSum = fpsSum - fpsSamples[fpsIdx]
         fpsSamples[fpsIdx] = (dt > 0 and 1 / dt) or 0
         fpsSum = fpsSum + fpsSamples[fpsIdx]
         fpsIdx = (fpsIdx % sampleCount) + 1
         FpsVal.Text = tostring(math.floor(fpsSum / sampleCount + 0.5))
-
-        if tick() - lastUptimeUpdate >= 1 then
-            UptimeTitleLabel.Text = "Uptime: " .. FormatTime(math.floor(tick() - libraryLoadedAt))
-            lastUptimeUpdate = tick()
-        end
 
         local ok, ping = pcall(function()
             return Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
