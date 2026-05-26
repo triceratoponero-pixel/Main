@@ -1,5 +1,5 @@
 -- ╔══════════════════════════════════════════════════════════════╗
--- ║                    NOVA UI LIBRARY v2.0                      ║
+-- ║                    NOVA UI LIBRARY v2.1                      ║
 -- ║              Modern Roblox Interface Framework               ║
 -- ╚══════════════════════════════════════════════════════════════╝
 
@@ -13,8 +13,6 @@ local RunService       = game:GetService("RunService")
 local TweenService     = game:GetService("TweenService")
 local Stats            = game:GetService("Stats")
 local CoreGui          = game:GetService("CoreGui")
-local TeleportService  = game:GetService("TeleportService")
-local HttpService      = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -39,15 +37,8 @@ local Theme = {
     TextMuted     = Color3.fromRGB(70,  70,  100),
     TabActive     = Color3.fromRGB(99,  102, 241),
     TabInactive   = Color3.fromRGB(28,  28,  44),
-    ToggleOn      = Color3.fromRGB(99,  102, 241),
-    ToggleOff     = Color3.fromRGB(48,  48,  68),
-    SliderFill    = Color3.fromRGB(99,  102, 241),
-    SliderTrack   = Color3.fromRGB(33,  33,  53),
-    DropdownBg    = Color3.fromRGB(20,  20,  32),
     ScrollBar     = Color3.fromRGB(50,  50,  78),
     TitleBar      = Color3.fromRGB(13,  13,  21),
-    Discord       = Color3.fromRGB(88,  101, 242),
-    DiscordHover  = Color3.fromRGB(108, 121, 255),
 }
 
 -- ── Utility ───────────────────────────────────────────────────────
@@ -57,11 +48,13 @@ local function Tween(obj, props, t, style, dir)
         style or Enum.EasingStyle.Quart,
         dir   or Enum.EasingDirection.Out
     )
-    TweenService:Create(obj, info, props):Play()
+    local tween = TweenService:Create(obj, info, props)
+    tween:Play()
+    return tween
 end
 
 local function TweenSpring(obj, props, t)
-    Tween(obj, props, t or 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    return Tween(obj, props, t or 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 end
 
 local function Stroke(parent, color, thickness)
@@ -186,10 +179,11 @@ function Nova.new(config)
     config = config or {}
     local self      = setmetatable({}, Nova)
     self.Title      = config.Title  or "Nova"
-    self.Width      = config.Width  or 740 -- Larghezza aumentata per accomodare la barra sinistra di stats/tabs
+    self.Width      = config.Width  or 740
     self.Height     = config.Height or 480
     self.Tabs       = {}
     self._minimized = false
+    self._connections = {}
 
     -- ── ScreenGui ────────────────────────────────────────────────
     local ScreenGui = Instance.new("ScreenGui")
@@ -239,10 +233,11 @@ function Nova.new(config)
     BG.Parent = Main
     self.Main = Main
 
-    RunService.RenderStepped:Connect(function()
+    local renderConn = RunService.RenderStepped:Connect(function()
         Shadow.Position = UDim2.new(0, Main.AbsolutePosition.X - 30, 0, Main.AbsolutePosition.Y - 30)
         Shadow.Size = UDim2.new(0, Main.AbsoluteSize.X + 60, 0, Main.AbsoluteSize.Y + 60)
     end)
+    table.insert(self._connections, renderConn)
 
     task.defer(function()
         TweenSpring(Main, {
@@ -339,7 +334,7 @@ function Nova.new(config)
             Tween(icon, {TextTransparency = 0.3}, 0.12)
             Tween(btn, {Size = UDim2.new(0, 22, 0, 22), Position = UDim2.new(1, rightOffset, 0.5, -11)}, 0.12)
         end)
-        return btn, icon
+        return btn
     end
 
     local CloseBtn    = MakeWinBtn(-30, Theme.Danger,  Theme.DangerHover,  "✕")
@@ -356,6 +351,9 @@ function Nova.new(config)
     end)
 
     CloseBtn.MouseButton1Click:Connect(function()
+        for _, conn in ipairs(self._connections) do
+            if conn then conn:Disconnect() end
+        end
         Tween(Main,   {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         Tween(Shadow, {ImageTransparency = 1}, 0.25)
         task.delay(0.32, function() ScreenGui:Destroy() end)
@@ -364,7 +362,7 @@ function Nova.new(config)
     MakeDraggable(Main, TitleBar)
     self.TitleBar = TitleBar
 
-    -- ── NUOVA SEZIONE SINISTRA INDIPENDENTE (Stats & Tabs Container) ──
+    -- ── PANNELLO SINISTRO INDIPENDENTE ──
     local LeftPanel = Instance.new("Frame")
     LeftPanel.Name              = "LeftPanel"
     LeftPanel.Size              = UDim2.new(0, 200, 1, -44)
@@ -383,18 +381,15 @@ function Nova.new(config)
     LeftBorder.Parent           = LeftPanel
     self.LeftPanel = LeftPanel
 
-    -- ── Tab Bar (Spostato dentro il LeftPanel e orientato verticalmente) ──
+    -- ── Tab Bar Vertical Scrolling Container ──
     local TabBar = Instance.new("ScrollingFrame")
     TabBar.Name                  = "TabBar"
-    TabBar.Size                  = UDim2.new(1, -10, 1, -215) -- Occupa lo spazio rimanente sotto i dati dell'avatar
+    TabBar.Size                  = UDim2.new(1, -10, 1, -215)
     TabBar.Position              = UDim2.new(0, 5, 0, 205)
-    TabBar.BackgroundColor3      = Color3.fromRGB(0, 0, 0)
     TabBar.BackgroundTransparency = 1
     TabBar.BorderSizePixel       = 0
     TabBar.ScrollBarThickness    = 2
     TabBar.ScrollBarImageColor3  = Theme.ScrollBar
-    TabBar.CanvasSize            = UDim2.new(0, 0, 0, 0)
-    TabBar.AutomaticCanvasSize   = Enum.AutomaticSize.Y
     TabBar.ScrollingDirection    = Enum.ScrollingDirection.Y
     TabBar.ZIndex                = 5
     TabBar.Parent                = LeftPanel
@@ -405,9 +400,13 @@ function Nova.new(config)
     TabList.Padding       = UDim.new(0, 4)
     TabList.Parent        = TabBar
     Padding(TabBar, 2, 4, 2, 4)
+
+    TabList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        TabBar.CanvasSize = UDim2.new(0, 0, 0, TabList.AbsoluteContentSize.Y + 10)
+    end)
     self.TabBar = TabBar
 
-    -- ── Content Area (Spostata a destra del LeftPanel) ──
+    -- ── Content Area Principale (Destra) ──
     local ContentArea = Instance.new("Frame")
     ContentArea.Name              = "ContentArea"
     ContentArea.Size              = UDim2.new(1, -200, 1, -44)
@@ -423,19 +422,17 @@ function Nova.new(config)
         Notify(ScreenGui, msg, col, dur)
     end
 
-    -- Costruisci i moduli fissi interni nel pannello sinistro
     self:_BuildLeftPanelStats()
 
     return self
 end
 
 -- ══════════════════════════════════════════════════════════════════
--- ║  Left Panel Build (Avatar e Statistiche Integrate a Sinistra)
+-- ║  Left Panel Build (Stats, Avatar & Info Monitor)
 -- ══════════════════════════════════════════════════════════════════
 function Nova:_BuildLeftPanelStats()
     local target = self.LeftPanel
 
-    -- Avatar ring
     local AvatarContainer = Instance.new("Frame")
     AvatarContainer.Size             = UDim2.new(0, 54, 0, 54)
     AvatarContainer.Position         = UDim2.new(0, 12, 0, 12)
@@ -484,6 +481,7 @@ function Nova:_BuildLeftPanelStats()
     NameLabel.TextSize               = 12
     NameLabel.Font                   = Enum.Font.GothamBold
     NameLabel.TextXAlignment         = Enum.TextXAlignment.Left
+    NameLabel.ClipsDescendants       = true
     NameLabel.ZIndex                 = 5
     NameLabel.Parent                 = target
 
@@ -496,10 +494,10 @@ function Nova:_BuildLeftPanelStats()
     UsernameLabel.TextSize               = 10
     UsernameLabel.Font                   = Enum.Font.Gotham
     UsernameLabel.TextXAlignment         = Enum.TextXAlignment.Left
+    UsernameLabel.ClipsDescendants       = true
     UsernameLabel.ZIndex                 = 5
     UsernameLabel.Parent                 = target
 
-    -- Mini Stat Cards (Griglia a sinistra compatta sotto l'avatar)
     local function MiniStatCard(label, icon, xCol, yRow)
         local card = Instance.new("Frame")
         card.Size             = UDim2.new(0, 84, 0, 52)
@@ -527,7 +525,7 @@ function Nova:_BuildLeftPanelStats()
         lbl2.Position               = UDim2.new(0, 22, 0, 6)
         lbl2.BackgroundTransparency = 1
         lbl2.Text                   = label
-        lbl2.TextColor3             = Theme.TextMuted
+        lbl2.TextColor3 = Theme.TextMuted
         lbl2.TextSize               = 7
         lbl2.Font                   = Enum.Font.GothamBold
         lbl2.TextXAlignment         = Enum.TextXAlignment.Left
@@ -560,7 +558,7 @@ function Nova:_BuildLeftPanelStats()
     for i = 1, 10 do fpsSamples[i] = 60 end
     fpsSum = 600
 
-    RunService.Heartbeat:Connect(function(dt)
+    local coreMetricsConn = RunService.Heartbeat:Connect(function(dt)
         fpsSum = fpsSum - fpsSamples[fpsIdx]
         fpsSamples[fpsIdx] = 1 / dt
         fpsSum = fpsSum + fpsSamples[fpsIdx]
@@ -572,17 +570,19 @@ function Nova:_BuildLeftPanelStats()
         end)
         if ok then PingVal.Text = tostring(math.floor(ping)) .. "ms" end
     end)
+    table.insert(self._connections, coreMetricsConn)
 
     task.spawn(function()
-        while task.wait(4) do
+        while target.Parent do
             PlayersVal.Text = tostring(#Players:GetPlayers())
+            task.wait(4)
         end
     end)
     PlayersVal.Text = tostring(#Players:GetPlayers())
 end
 
 -- ══════════════════════════════════════════════════════════════════
--- ║  MakeTab()
+-- ║  MakeTab() con Transizioni Visive Ottimizzate
 -- ══════════════════════════════════════════════════════════════════
 function Nova:MakeTab(config)
     config = config or {}
@@ -598,7 +598,6 @@ function Nova:MakeTab(config)
     return tab
 end
 
--- ── internal: tab button + scrolling frame pair ───────────────────
 function Nova:_CreateTabButton(label, order)
     local tabBtn = Instance.new("TextButton")
     tabBtn.Size = UDim2.new(1, 0, 0, 32)
@@ -628,8 +627,6 @@ function Nova:_CreateTabButton(label, order)
     tabFrame.BorderSizePixel = 0
     tabFrame.ScrollBarThickness = 3
     tabFrame.ScrollBarImageColor3 = Theme.ScrollBar
-    tabFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    tabFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     tabFrame.Visible = false
     tabFrame.ZIndex = 3
     tabFrame.Parent = self.ContentArea
@@ -639,6 +636,10 @@ function Nova:_CreateTabButton(label, order)
     listLayout.Padding = UDim.new(0, 6)
     listLayout.Parent = tabFrame
     Padding(tabFrame, 10, 10, 10, 10)
+
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        tabFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 20)
+    end)
 
     tabBtn.MouseButton1Click:Connect(function()
         self:_SelectTab(tabBtn, tabLabel, tabFrame)
@@ -654,8 +655,10 @@ function Nova:_CreateTabButton(label, order)
 end
 
 function Nova:_SelectTab(btn, lbl, frame)
+    if frame.Visible then return end
+
     for _, f in ipairs(self.ContentArea:GetChildren()) do
-        if f:IsA("ScrollingFrame") then
+        if f:IsA("ScrollingFrame") and f.Visible then
             f.Visible = false
         end
     end
@@ -666,13 +669,19 @@ function Nova:_SelectTab(btn, lbl, frame)
             if l then Tween(l, {TextColor3 = Theme.TextSecondary}, 0.14) end
         end
     end
+
+    -- Animazione Slide + Smooth Fade-in per il nuovo Tab caricato a destra
+    frame.Position = UDim2.new(0, 15, 0, 0)
+    frame.Size = UDim2.new(1, -15, 1, 0)
     frame.Visible = true
+    
+    Tween(frame, {Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 1, 0)}, 0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     Tween(btn, {BackgroundColor3 = Theme.TabActive}, 0.14)
     Tween(lbl, {TextColor3 = Theme.TextPrimary}, 0.14)
 end
 
 -- ══════════════════════════════════════════════════════════════════
--- ║  Tab / Section API (Inalterate, caricano gli elementi a destra)
+-- ║  Tab / Section API
 -- ══════════════════════════════════════════════════════════════════
 TabAPI = {}
 SectionAPI = {}
