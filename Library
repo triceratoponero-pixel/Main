@@ -19,7 +19,7 @@ local Library = {
                 Default = {
                         Main = Color3.fromRGB(10, 11, 16),
                         Second = Color3.fromRGB(18, 20, 29),
-                        Stroke = Color3.fromRGB(0, 180, 216), -- Colore Neon Principale
+                        Stroke = Color3.fromRGB(0, 180, 216),
                         Divider = Color3.fromRGB(28, 32, 45),
                         Text = Color3.fromRGB(255, 255, 255),
                         TextDark = Color3.fromRGB(141, 149, 172)
@@ -143,7 +143,7 @@ local function MakeDraggable(DragPoint, Main)
                 UserInputService.InputChanged:Connect(function(Input)
                         if Input == DragInput and Dragging then
                                 local Delta = Input.Position - MousePos
-                                TweenService:Create(Main, TweenInfo.new(0.1, Enum.EasingStyle.Out, Enum.EasingDirection.Quart), {
+                                TweenService:Create(Main, TweenInfo.new(0.1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                                         Position = UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
                                 }):Play()
                         end
@@ -398,7 +398,6 @@ function Library:MakeNotification(NotificationConfig)
 end
 
 function Library:Init()
-        -- Funzione mantenuta per retrocompatibilità interna
 end
 
 function Library:MakeWindow(WindowConfig)
@@ -413,7 +412,6 @@ function Library:MakeWindow(WindowConfig)
         Library.Folder = WindowConfig.ConfigFolder
         Library.SaveCfg = WindowConfig.SaveConfig
 
-        -- DESIGN COMPLETAMENTE NUOVO: Floating Glass Card senza Sidebar laterale
         local MainWindow = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 6), {
                 Parent = Container,
                 Position = UDim2.new(0.5, -225, 0.5, -150),
@@ -423,7 +421,6 @@ function Library:MakeWindow(WindowConfig)
                 AddThemeObject(MakeElement("Stroke"), "Stroke")
         }), "Main")
 
-        -- Barra Superiore Integrata e ultra-compatta
         local DragPoint = SetProps(MakeElement("TFrame"), { Size = UDim2.new(1, 0, 0, 35), Parent = MainWindow })
         MakeDraggable(DragPoint, MainWindow)
 
@@ -434,7 +431,6 @@ function Library:MakeWindow(WindowConfig)
         }), "Stroke")
         WindowTitle.Parent = DragPoint
 
-        -- Pulsanti di controllo minimali in alto a destra
         local Controls = SetChildren(SetProps(MakeElement("TFrame"), { Position = UDim2.new(1, -70, 0, 0), Size = UDim2.new(0, 70, 1, 0), Parent = DragPoint }), {
                 SetProps(MakeElement("List"), { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 8) })
         })
@@ -445,7 +441,6 @@ function Library:MakeWindow(WindowConfig)
         local CloseBtn = AddThemeObject(SetProps(MakeElement("Label", "✕", 11), { Size = UDim2.new(0, 16, 0, 16), TextXAlignment = Enum.TextXAlignment.Center, Parent = Controls }), "TextDark")
         local CloseClick = SetProps(MakeElement("Button"), { Size = UDim2.new(1, 0, 1, 0), Parent = CloseBtn })
 
-        -- Barra di Navigazione Orizzontale (Sostituisce completamente la Sidebar)
         local NavContainer = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 4), {
                 Position = UDim2.new(0, 12, 0, 38),
                 Size = UDim2.new(1, -24, 0, 28),
@@ -464,7 +459,7 @@ function Library:MakeWindow(WindowConfig)
         AddConnection(CloseClick.MouseButton1Up, function()
                 MainWindow.Visible = false
                 UIHidden = true
-                WindowConfig.CloseCallback()
+                if WindowConfig.CloseCallback then WindowConfig.CloseCallback() end
         end)
 
         AddConnection(UserInputService.InputBegan, function(Input)
@@ -477,11 +472,11 @@ function Library:MakeWindow(WindowConfig)
         AddConnection(MinClick.MouseButton1Up, function()
                 Minimized = not Minimized
                 if Minimized then
-                        TweenService:Create(MainWindow, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 450, 0, 35)}):Play()
+                        TweenService:Create(MainWindow, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 450, 0, 35)}):Play()
                         NavContainer.Visible = false
                         PageContainer.Visible = false
                 else
-                        TweenService:Create(MainWindow, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 450, 0, 300)}):Play()
+                        TweenService:Create(MainWindow, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 450, 0, 300)}):Play()
                         NavContainer.Visible = true
                         PageContainer.Visible = true
                 end
@@ -493,7 +488,6 @@ function Library:MakeWindow(WindowConfig)
                 TabConfig = TabConfig or {}
                 TabConfig.Name = TabConfig.Name or "Tab"
 
-                -- Pulsante del Tab orizzontale compatto
                 local TabBtn = AddThemeObject(SetChildren(SetProps(MakeElement("Button"), {
                         Size = UDim2.new(0, math.clamp(#TabConfig.Name * 8 + 16, 60, 120), 1, 0),
                         Parent = NavContainer
@@ -541,7 +535,6 @@ function Library:MakeWindow(WindowConfig)
 
                 local Tab = {}
 
-                -- Gli elementi (Controlli) ora usano filettature sottili e un look ultra-minimalista "In-Line"
                 function Tab:AddButton(BtnConfig)
                         BtnConfig = BtnConfig or {}
                         BtnConfig.Name = BtnConfig.Name or "Execute"
@@ -584,7 +577,6 @@ function Library:MakeWindow(WindowConfig)
                                 SetProps(MakeElement("Button"), { Size = UDim2.new(1, 16, 1, 0), Position = UDim2.new(0, -8, 0, 0) })
                         }), "Second")
 
-                        -- Indicatore di stato Micro-Neon quadrato invece del cerchio classico
                         local Indicator = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 3), {
                                 AnchorPoint = Vector2.new(1, 0.5),
                                 Position = UDim2.new(1, 0, 0.5, 0),
@@ -637,7 +629,6 @@ function Library:MakeWindow(WindowConfig)
                                 Size = UDim2.new(0, 50, 0, 18), Position = UDim2.new(1, 0, 0, 0), TextXAlignment = Enum.TextXAlignment.Right, Font = Enum.Font.Code, Parent = Frame
                         }), "TextDark")
 
-                        -- Barra slider a filo singolo (UItra-Sleek line)
                         local Track = AddThemeObject(Create("Frame", {
                                 Size = UDim2.new(1, 0, 0, 2), Position = UDim2.new(0, 0, 0, 24), Parent = Frame, BackgroundTransparency = 0.6
                         }), "Main")
@@ -714,11 +705,11 @@ function Library:MakeWindow(WindowConfig)
                                 Opened = not Opened
                                 if Opened then
                                         local Height = (#DropdownConfig.Options * 24) + 4
-                                        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, Height + 26)}):Play()
-                                        TweenService:Create(OptionsHolder, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 16, 0, Height)}):Play()
+                                        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, Height + 26)}):Play()
+                                        TweenService:Create(OptionsHolder, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 16, 0, Height)}):Play()
                                 else
-                                        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, 26)}):Play()
-                                        TweenService:Create(OptionsHolder, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 16, 0, 0)}):Play()
+                                        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 26)}):Play()
+                                        TweenService:Create(OptionsHolder, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 16, 0, 0)}):Play()
                                 end
                         end
 
@@ -917,7 +908,6 @@ function Library:MakeWindow(WindowConfig)
                 return Tab
         end
 
-        -- Mantenimento esatto di tutte le logiche di configurazione per evitare rotture di script esterni
         local function _configPath(name) return WindowConfig.ConfigFolder .. "/configs/" .. name .. ".txt" end
         local function _ensureFolders() if not isfolder(WindowConfig.ConfigFolder) then makefolder(WindowConfig.ConfigFolder) end if not isfolder(WindowConfig.ConfigFolder .. "/configs") then makefolder(WindowConfig.ConfigFolder .. "/configs") end end
         local function _checkExecutor() return (writefile and readfile and isfile and isfolder and makefolder and listfiles) end
