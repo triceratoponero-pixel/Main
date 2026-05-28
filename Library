@@ -724,14 +724,16 @@ function Library:MakeWindow(WindowConfig)
         end
 
         local TabHolder = AddThemeObject(SetChildren(SetProps(MakeElement("ScrollFrame", Color3.fromRGB(255, 255, 255), 4), {
-                Size = UDim2.new(1, 0, 1, -50)
+                Size = UDim2.new(1, 0, 1, -160),
+                BackgroundColor3 = Color3.fromRGB(24, 28, 38),
+                BackgroundTransparency = 0.12
         }), {
-                MakeElement("List"),
-                MakeElement("Padding", 8, 0, 0, 8)
+                MakeElement("List", 0, 12),
+                MakeElement("Padding", 18, 16, 16, 16)
         }), "Divider")
 
         AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-                TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 16)
+                TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 22)
         end)
 
         local CloseBtn = SetChildren(SetProps(MakeElement("Button"), {
@@ -760,111 +762,105 @@ function Library:MakeWindow(WindowConfig)
                 Size = UDim2.new(1, 0, 0, 50)
         })
 
-        local WindowStuff = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 10), {
-                Size = UDim2.new(0, 150, 1, -50),
-                Position = UDim2.new(0, 0, 0, 50),
-                BackgroundTransparency = 0.025
+        local WindowStuff = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 18), {
+                Size = UDim2.new(0, 190, 1, -70),
+                Position = UDim2.new(0, 20, 0, 60),
+                BackgroundTransparency = 0.16
         }), {
                 AddThemeObject(SetProps(MakeElement("Frame"), {
-                        Size = UDim2.new(1, 0, 0, 10),
+                        Size = UDim2.new(1, 0, 0, 1),
                         Position = UDim2.new(0, 0, 0, 0),
-                        BackgroundTransparency = 0.25
-                }), "Second"), 
-                AddThemeObject(SetProps(MakeElement("Frame"), {
-                        Size = UDim2.new(0, 10, 1, 0),
-                        Position = UDim2.new(1, -10, 0, 0),
-                        BackgroundTransparency = 0.25
-                }), "Second"), 
-                AddThemeObject(SetProps(MakeElement("Frame"), {
-                        Size = UDim2.new(0, 1, 1, 0),
-                        Position = UDim2.new(1, -1, 0, 0),
-                        BackgroundTransparency = 0.4
+                        BackgroundTransparency = 0.85
                 }), "Stroke"), 
-                TabHolder,
-                SetChildren(SetProps(MakeElement("TFrame"), {
-                        Size = UDim2.new(1, 0, 0, 50),
-                        Position = UDim2.new(0, 0, 1, -50)
+                AddThemeObject(SetProps(MakeElement("Frame"), {
+                        Size = UDim2.new(0, 4, 1, 0),
+                        Position = UDim2.new(1, -4, 0, 0),
+                        BackgroundTransparency = 0.7
+                }), "Stroke"), 
+                SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(18, 22, 34), 0, 16), {
+                        Size = UDim2.new(1, -28, 0, 130),
+                        Position = UDim2.new(0, 14, 0, 14),
+                        BackgroundTransparency = 0.08
                 }), {
                         AddThemeObject(SetProps(MakeElement("Frame"), {
-                                Size = UDim2.new(1, 0, 0, 1),
-                                BackgroundTransparency = 0.4
-                        }), "Stroke"), 
-                        AddThemeObject(SetChildren(SetProps(MakeElement("Frame"), {
-                                AnchorPoint = Vector2.new(0, 0.5),
-                                Size = UDim2.new(0, 32, 0, 32),
-                                Position = UDim2.new(0, 10, 0.5, 0),
-                                BackgroundTransparency = 0.3
-                        }), {
-                                SetProps(MakeElement("Image", "https://www.roblox.com/headshot-thumbnail/image?userId=".. LocalPlayer.UserId .."&width=420&height=420&format=png"), {
-                                        Size = UDim2.new(1, 0, 1, 0)
-                                }),
-                                AddThemeObject(SetProps(MakeElement("Image", "rbxassetid://4031889928"), {
-                                        Size = UDim2.new(1, 0, 1, 0),
-                                }), "Second"),
-                                MakeElement("Corner", 1)
-                        }), "Divider"),
-                        SetChildren(SetProps(MakeElement("TFrame"), {
-                                AnchorPoint = Vector2.new(0, 0.5),
-                                Size = UDim2.new(0, 32, 0, 32),
-                                Position = UDim2.new(0, 10, 0.5, 0)
-                        }), {
-                                AddThemeObject(MakeElement("Stroke"), "Stroke"),
-                                MakeElement("Corner", 1)
-                        }),
-                        AddThemeObject(SetProps(MakeElement("Label", WindowConfig.IntroText, WindowConfig.HidePremium and 14 or 13), {
-                                Size = UDim2.new(1, -60, 0, 13),
-                                Position = WindowConfig.HidePremium and UDim2.new(0, 50, 0, 19) or UDim2.new(0, 50, 0, 12),
-                                Font = Enum.Font.FredokaOne,
-                                ClipsDescendants = true
+                                Size = UDim2.new(0, 4, 0, 30),
+                                Position = UDim2.new(0, 12, 0, 12),
+                                BackgroundTransparency = 0,
+                                BackgroundColor3 = Color3.fromRGB(85, 170, 255)
+                        }), "Second"),
+                        AddThemeObject(SetProps(MakeElement("Label", WindowConfig.IntroText, 20), {
+                                Size = UDim2.new(1, -28, 0, 30),
+                                Position = UDim2.new(0, 20, 0, 12),
+                                Font = Enum.Font.GothamBlack,
+                                TextXAlignment = Enum.TextXAlignment.Left,
+                                TextTransparency = 0
                         }), "Text"),
-                        AddThemeObject(SetProps(MakeElement("Label", "Join Pacific", 12), {
-                                Size = UDim2.new(1, -60, 0, 12),
-                                Position = UDim2.new(0, 50, 1, -25),
-                                Visible = not WindowConfig.HidePremium
+                        AddThemeObject(SetProps(MakeElement("Label", "Modern dashboard", 12), {
+                                Size = UDim2.new(1, -28, 0, 18),
+                                Position = UDim2.new(0, 20, 0, 44),
+                                Font = Enum.Font.Gotham,
+                                TextXAlignment = Enum.TextXAlignment.Left,
+                                TextTransparency = 0.3,
+                                TextColor3 = Color3.fromRGB(170, 180, 210)
+                        }), "TextDark"),
+                        AddThemeObject(SetProps(MakeElement("Frame"), {
+                                Size = UDim2.new(1, -28, 0, 1),
+                                Position = UDim2.new(0, 20, 0, 72),
+                                BackgroundTransparency = 0.75
+                        }), "Stroke"),
+                        AddThemeObject(SetProps(MakeElement("Label", "Navigation", 12), {
+                                Size = UDim2.new(1, -28, 0, 18),
+                                Position = UDim2.new(0, 20, 0, 80),
+                                Font = Enum.Font.Gotham,
+                                TextXAlignment = Enum.TextXAlignment.Left,
+                                TextTransparency = 0.5,
+                                TextColor3 = Color3.fromRGB(170, 180, 210)
                         }), "TextDark")
                 }),
+                TabHolder
         }), "Second")
 
         local WindowName = AddThemeObject(SetProps(MakeElement("Label", WindowConfig.Name, 14), {
-                Size = UDim2.new(1, -30, 2, 0),
-                Position = UDim2.new(0, 25, 0, -24),
+                Size = UDim2.new(1, -40, 0, 30),
+                Position = UDim2.new(0, 25, 0, 10),
                 Font = Enum.Font.GothamBlack,
-                TextSize = 20
+                TextSize = 24
         }), "Text")
 
         local WindowTopBarLine = AddThemeObject(SetProps(MakeElement("Frame"), {
-                Size = UDim2.new(1, 0, 0, 1),
-                Position = UDim2.new(0, 0, 1, -1),
-                BackgroundTransparency = 0.4
+                Size = UDim2.new(0.24, 0, 0, 4),
+                Position = UDim2.new(0, 25, 0, 44),
+                BackgroundTransparency = 0,
+                BackgroundColor3 = Color3.fromRGB(85, 170, 255)
         }), "Stroke")
 
-        local MainWindow = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 10), {
+        local MainWindow = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 16), {
                 Parent = Container,
-                Position = UDim2.new(0.5, -307, 0.5, -172),
-                Size = UDim2.new(0, 615, 0, 344),
+                Position = UDim2.new(0.5, -337, 0.5, -212),
+                Size = UDim2.new(0, 674, 0, 424),
                 ClipsDescendants = true,
-                BackgroundTransparency = 0.09
+                BackgroundTransparency = 0.08
         }), {
                 SetChildren(SetProps(MakeElement("TFrame"), {
-                        Size = UDim2.new(1, 0, 0, 50),
+                        Size = UDim2.new(1, 0, 0, 60),
                         Name = "TopBar"
                 }), {
                         WindowName,
                         WindowTopBarLine,
-                        AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 7), {
-                                Size = UDim2.new(0, 70, 0, 30),
-                                Position = UDim2.new(1, -90, 0, 10),
-                                BackgroundTransparency = 0.25
+                        AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255, 255, 255), 0, 9), {
+                                Size = UDim2.new(0, 90, 0, 34),
+                                Position = UDim2.new(1, -110, 0, 13),
+                                BackgroundTransparency = 0.2
                         }), {
                                 AddThemeObject(MakeElement("Stroke"), "Stroke"),
                                 AddThemeObject(SetProps(MakeElement("Frame"), {
                                         Size = UDim2.new(0, 1, 1, 0),
                                         Position = UDim2.new(0.5, 0, 0, 0),
-                                        BackgroundTransparency = 0.4
+                                        BackgroundTransparency = 0.45
                                 }), "Stroke"), 
                                 CloseBtn,
                                 MinimizeBtn
-                        }), "Second"), 
+                        }), "Second")
                 }),
                 DragPoint,
                 WindowStuff
