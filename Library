@@ -1,193 +1,309 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
 local Library = {
-    Flags = {}, -- Stores the current value of all elements
-    Folder = "MyScriptConfigs", -- The folder created in your workspace directory
+    Flags = {},
+    Folder = "ModernConfigs",
     Ext = ".json"
 }
 
--- Ensure config folder exists
-if makefolder and not isfolder(Library.Folder) then
-    makefolder(Library.Folder)
+-- Theme Settings
+local Theme = {
+    MainBg = Color3.fromRGB(15, 15, 17),
+    SidebarBg = Color3.fromRGB(20, 20, 23),
+    ElementBg = Color3.fromRGB(25, 25, 29),
+    ElementHover = Color3.fromRGB(35, 35, 40),
+    Accent = Color3.fromRGB(88, 101, 242), -- Modern Blurple
+    Text = Color3.fromRGB(240, 240, 240),
+    TextDim = Color3.fromRGB(150, 150, 150),
+    Stroke = Color3.fromRGB(40, 40, 45)
+}
+
+-- Helper Function for Animations
+local function CreateTween(object, properties, duration, style, direction)
+    local tweenInfo = TweenInfo.new(
+        duration or 0.2, 
+        style or Enum.EasingStyle.Quad, 
+        direction or Enum.EasingDirection.Out
+    )
+    local tween = TweenService:Create(object, tweenInfo, properties)
+    tween:Play()
+    return tween
 end
 
 function Library:CreateWindow(titleText)
-    -- [Insert the MainFrame, Sidebar, and ContentFrame setup from the previous response here]
-    -- For brevity, assuming MainFrame and Sidebar are set up.
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "ModernUI"
+    ScreenGui.Parent = RunService:IsStudio() and LocalPlayer.PlayerGui or CoreGui
+    ScreenGui.ResetOnSpawn = false
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(0, 650, 0, 450)
+    MainFrame.Position = UDim2.new(0.5, -325, 0.5, -225)
+    MainFrame.BackgroundColor3 = Theme.MainBg
+    MainFrame.Parent = ScreenGui
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
     
+    local MainStroke = Instance.new("UIStroke")
+    MainStroke.Color = Theme.Stroke
+    MainStroke.Thickness = 1
+    MainStroke.Parent = MainFrame
+
+    -- Sidebar setup
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Size = UDim2.new(0, 180, 1, 0)
+    Sidebar.BackgroundColor3 = Theme.SidebarBg
+    Sidebar.BorderSizePixel = 0
+    Sidebar.Parent = MainFrame
+    Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
+
+    -- Hide right corner of sidebar to blend with main background
+    local SidebarBlend = Instance.new("Frame")
+    SidebarBlend.Size = UDim2.new(0, 10, 1, 0)
+    SidebarBlend.Position = UDim2.new(1, -10, 0, 0)
+    SidebarBlend.BackgroundColor3 = Theme.SidebarBg
+    SidebarBlend.BorderSizePixel = 0
+    SidebarBlend.Parent = Sidebar
+
     local ContentContainer = Instance.new("Frame")
     ContentContainer.Size = UDim2.new(1, -190, 1, -20)
     ContentContainer.Position = UDim2.new(0, 190, 0, 10)
     ContentContainer.BackgroundTransparency = 1
-    ContentContainer.Parent = MainFrame -- Assuming MainFrame is already created
+    ContentContainer.Parent = MainFrame
 
+    -- Player Info (Sidebar)
+    local AvatarImage = Instance.new("ImageLabel")
+    AvatarImage.Size = UDim2.new(0, 60, 0, 60)
+    AvatarImage.Position = UDim2.new(0.5, -30, 0, 20)
+    AvatarImage.BackgroundColor3 = Theme.ElementBg
+    AvatarImage.Parent = Sidebar
+    Instance.new("UICorner", AvatarImage).CornerRadius = UDim.new(1, 0)
+
+    local thumbContent, isReady = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    if isReady then AvatarImage.Image = thumbContent end
+
+    local UsernameLabel = Instance.new("TextLabel")
+    UsernameLabel.Size = UDim2.new(1, 0, 0, 20)
+    UsernameLabel.Position = UDim2.new(0, 0, 0, 90)
+    UsernameLabel.BackgroundTransparency = 1
+    UsernameLabel.Text = LocalPlayer.Name
+    UsernameLabel.TextColor3 = Theme.Text
+    UsernameLabel.Font = Enum.Font.GothamBold
+    UsernameLabel.TextSize = 14
+    UsernameLabel.Parent = Sidebar
+
+    local FPSLabel = Instance.new("TextLabel")
+    FPSLabel.Size = UDim2.new(1, 0, 0, 15)
+    FPSLabel.Position = UDim2.new(0, 0, 0, 115)
+    FPSLabel.BackgroundTransparency = 1
+    FPSLabel.TextColor3 = Theme.TextDim
+    FPSLabel.Font = Enum.Font.Gotham
+    FPSLabel.TextSize = 12
+    FPSLabel.Parent = Sidebar
+
+    local PingLabel = FPSLabel:Clone()
+    PingLabel.Position = UDim2.new(0, 0, 0, 135)
+    PingLabel.Parent = Sidebar
+
+    -- Stats Logic
+    local fpsHistory, pingHistory = {}, {}
+    local frames, timeAcc = 0, 0
+    RunService.RenderStepped:Connect(function(dt)
+        frames = frames + 1
+        timeAcc = timeAcc + dt
+        if timeAcc >= 1 then
+            table.insert(fpsHistory, frames / timeAcc)
+            table.insert(pingHistory, LocalPlayer:GetNetworkPing() * 1000)
+            if #fpsHistory > 10 then table.remove(fpsHistory, 1) end
+            if #pingHistory > 10 then table.remove(pingHistory, 1) end
+            
+            local tFps, tPing = 0, 0
+            for _, v in ipairs(fpsHistory) do tFps = tFps + v end
+            for _, v in ipairs(pingHistory) do tPing = tPing + v end
+            
+            FPSLabel.Text = "FPS: " .. math.floor(tFps / #fpsHistory)
+            PingLabel.Text = "Ping: " .. math.floor(tPing / #pingHistory) .. "ms"
+            frames, timeAcc = 0, 0
+        end
+    end)
+
+    -- Tab System
     local Elements = {}
     local Tabs = {}
     local activeTab = nil
 
-    -- Tab System
     function Elements:CreateTab(tabName)
-        -- Sidebar Button for the Tab
-        local TabButton = Instance.new("TextButton")
-        TabButton.Size = UDim2.new(1, -20, 0, 30)
-        TabButton.Position = UDim2.new(0, 10, 0, 200 + (#Tabs * 35))
-        TabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        TabButton.Text = tabName
-        TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        TabButton.Font = Enum.Font.Gotham
-        TabButton.TextSize = 14
-        TabButton.Parent = Sidebar -- Assuming Sidebar is already created
-        Instance.new("UICorner", TabButton).CornerRadius = UDim.new(0, 4)
+        local TabBtn = Instance.new("TextButton")
+        TabBtn.Size = UDim2.new(1, -20, 0, 35)
+        TabBtn.Position = UDim2.new(0, 10, 0, 170 + (#Tabs * 40))
+        TabBtn.BackgroundColor3 = Theme.SidebarBg
+        TabBtn.Text = "  " .. tabName
+        TabBtn.TextXAlignment = Enum.TextXAlignment.Left
+        TabBtn.TextColor3 = Theme.TextDim
+        TabBtn.Font = Enum.Font.GothamMedium
+        TabBtn.TextSize = 14
+        TabBtn.Parent = Sidebar
+        Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 6)
 
-        -- Scrolling Frame for the Tab's Content
-        local TabContent = Instance.new("ScrollingFrame")
-        TabContent.Size = UDim2.new(1, 0, 1, 0)
-        TabContent.BackgroundTransparency = 1
-        TabContent.ScrollBarThickness = 4
-        TabContent.Visible = false
-        TabContent.Parent = ContentContainer
+        -- Indicator line for active tab
+        local TabIndicator = Instance.new("Frame")
+        TabIndicator.Size = UDim2.new(0, 3, 0, 0)
+        TabIndicator.Position = UDim2.new(0, 0, 0.5, 0)
+        TabIndicator.BackgroundColor3 = Theme.Accent
+        TabIndicator.BorderSizePixel = 0
+        TabIndicator.Parent = TabBtn
+        Instance.new("UICorner", TabIndicator).CornerRadius = UDim.new(1, 0)
+
+        -- Tab Content (Using CanvasGroup for transparency fading)
+        local TabContentGroup = Instance.new("CanvasGroup")
+        TabContentGroup.Size = UDim2.new(1, 0, 1, 0)
+        TabContentGroup.BackgroundTransparency = 1
+        TabContentGroup.GroupTransparency = 1
+        TabContentGroup.Visible = false
+        TabContentGroup.Parent = ContentContainer
+
+        local TabScroll = Instance.new("ScrollingFrame")
+        TabScroll.Size = UDim2.new(1, 0, 1, 0)
+        TabScroll.BackgroundTransparency = 1
+        TabScroll.ScrollBarThickness = 2
+        TabScroll.ScrollBarImageColor3 = Theme.Stroke
+        TabScroll.Parent = TabContentGroup
         
         local Layout = Instance.new("UIListLayout")
-        Layout.Padding = UDim.new(0, 5)
-        Layout.Parent = TabContent
+        Layout.Padding = UDim.new(0, 8)
+        Layout.Parent = TabScroll
+        
+        local tabData = {Button = TabBtn, Group = TabContentGroup, Indicator = TabIndicator}
+        table.insert(Tabs, tabData)
 
-        table.insert(Tabs, {Button = TabButton, Content = TabContent})
-
-        TabButton.MouseButton1Click:Connect(function()
-            for _, tab in ipairs(Tabs) do
-                tab.Content.Visible = false
-                tab.Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        TabBtn.MouseEnter:Connect(function()
+            if activeTab ~= tabData then
+                CreateTween(TabBtn, {BackgroundColor3 = Theme.ElementBg}, 0.2)
+                CreateTween(TabBtn, {TextColor3 = Theme.Text}, 0.2)
             end
-            TabContent.Visible = true
-            TabButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        end)
+        TabBtn.MouseLeave:Connect(function()
+            if activeTab ~= tabData then
+                CreateTween(TabBtn, {BackgroundColor3 = Theme.SidebarBg}, 0.2)
+                CreateTween(TabBtn, {TextColor3 = Theme.TextDim}, 0.2)
+            end
         end)
 
-        -- Initialize first tab
+        TabBtn.MouseButton1Click:Connect(function()
+            if activeTab == tabData then return end
+            
+            for _, t in ipairs(Tabs) do
+                CreateTween(t.Indicator, {Size = UDim2.new(0, 3, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.2)
+                CreateTween(t.Button, {BackgroundColor3 = Theme.SidebarBg, TextColor3 = Theme.TextDim}, 0.2)
+                
+                if t.Group.Visible then
+                    local fadeOut = CreateTween(t.Group, {GroupTransparency = 1}, 0.15)
+                    fadeOut.Completed:Connect(function()
+                        if activeTab ~= t then t.Group.Visible = false end
+                    end)
+                end
+            end
+            
+            activeTab = tabData
+            tabData.Group.Visible = true
+            CreateTween(tabData.Indicator, {Size = UDim2.new(0, 3, 0, 20), Position = UDim2.new(0, 0, 0.5, -10)}, 0.2)
+            CreateTween(TabBtn, {BackgroundColor3 = Theme.ElementBg, TextColor3 = Theme.Text}, 0.2)
+            CreateTween(tabData.Group, {GroupTransparency = 0}, 0.25)
+        end)
+
         if #Tabs == 1 then
-            TabContent.Visible = true
-            TabButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            activeTab = tabData
+            tabData.Group.Visible = true
+            tabData.Group.GroupTransparency = 0
+            TabBtn.BackgroundColor3 = Theme.ElementBg
+            TabBtn.TextColor3 = Theme.Text
+            TabIndicator.Size = UDim2.new(0, 3, 0, 20)
+            TabIndicator.Position = UDim2.new(0, 0, 0.5, -10)
         end
 
         local TabElements = {}
 
-        -- Modified Component Builders to support Flags
+        function TabElements:CreateButton(text, callback)
+            local Btn = Instance.new("TextButton")
+            Btn.Size = UDim2.new(1, -10, 0, 40)
+            Btn.BackgroundColor3 = Theme.ElementBg
+            Btn.Text = text
+            Btn.TextColor3 = Theme.Text
+            Btn.Font = Enum.Font.Gotham
+            Btn.TextSize = 14
+            Btn.Parent = TabScroll
+            Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+            
+            local Stroke = Instance.new("UIStroke", Btn)
+            Stroke.Color = Theme.Stroke
+            Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+            Btn.MouseEnter:Connect(function() CreateTween(Btn, {BackgroundColor3 = Theme.ElementHover}, 0.2) end)
+            Btn.MouseLeave:Connect(function() CreateTween(Btn, {BackgroundColor3 = Theme.ElementBg}, 0.2) end)
+            
+            Btn.MouseButton1Down:Connect(function() CreateTween(Btn, {Size = UDim2.new(1, -14, 0, 36)}, 0.1) end)
+            Btn.MouseButton1Up:Connect(function() CreateTween(Btn, {Size = UDim2.new(1, -10, 0, 40)}, 0.1) end)
+            
+            Btn.MouseButton1Click:Connect(function() if callback then callback() end end)
+        end
+
         function TabElements:CreateToggle(text, flag, callback)
             local state = false
-            Library.Flags[flag] = state -- Register Flag
+            Library.Flags[flag] = state
 
-            local ToggleFrame = Instance.new("TextButton")
-            -- [Insert Toggle UI creation from previous response]
-            ToggleFrame.Parent = TabContent
-            
+            local Tgl = Instance.new("TextButton")
+            Tgl.Size = UDim2.new(1, -10, 0, 40)
+            Tgl.BackgroundColor3 = Theme.ElementBg
+            Tgl.Text = "  " .. text
+            Tgl.TextXAlignment = Enum.TextXAlignment.Left
+            Tgl.TextColor3 = Theme.Text
+            Tgl.Font = Enum.Font.Gotham
+            Tgl.TextSize = 14
+            Tgl.Parent = TabScroll
+            Instance.new("UICorner", Tgl).CornerRadius = UDim.new(0, 6)
+            Instance.new("UIStroke", Tgl).Color = Theme.Stroke
+
+            local IndicatorBg = Instance.new("Frame")
+            IndicatorBg.Size = UDim2.new(0, 40, 0, 20)
+            IndicatorBg.Position = UDim2.new(1, -50, 0.5, -10)
+            IndicatorBg.BackgroundColor3 = Theme.MainBg
+            IndicatorBg.Parent = Tgl
+            Instance.new("UICorner", IndicatorBg).CornerRadius = UDim.new(1, 0)
+            Instance.new("UIStroke", IndicatorBg).Color = Theme.Stroke
+
+            local Circle = Instance.new("Frame")
+            Circle.Size = UDim2.new(0, 16, 0, 16)
+            Circle.Position = UDim2.new(0, 2, 0.5, -8)
+            Circle.BackgroundColor3 = Theme.TextDim
+            Circle.Parent = IndicatorBg
+            Instance.new("UICorner", Circle).CornerRadius = UDim.new(1, 0)
+
             local function Update(newState)
                 state = newState
                 Library.Flags[flag] = state
-                -- Update Indicator Color here
+                if state then
+                    CreateTween(Circle, {Position = UDim2.new(1, -18, 0.5, -8), BackgroundColor3 = Theme.Accent}, 0.25, Enum.EasingStyle.Back)
+                    CreateTween(IndicatorBg, {BackgroundColor3 = Theme.ElementHover}, 0.25)
+                else
+                    CreateTween(Circle, {Position = UDim2.new(0, 2, 0.5, -8), BackgroundColor3 = Theme.TextDim}, 0.25, Enum.EasingStyle.Back)
+                    CreateTween(IndicatorBg, {BackgroundColor3 = Theme.MainBg}, 0.25)
+                end
                 if callback then callback(state) end
             end
 
-            ToggleFrame.MouseButton1Click:Connect(function() Update(not state) end)
-
-            -- Method to force update from config loader
-            Library.Flags[flag .. "_Set"] = function(val) Update(val) end 
+            Tgl.MouseEnter:Connect(function() CreateTween(Tgl, {BackgroundColor3 = Theme.ElementHover}, 0.2) end)
+            Tgl.MouseLeave:Connect(function() CreateTween(Tgl, {BackgroundColor3 = Theme.ElementBg}, 0.2) end)
+            Tgl.MouseButton1Click:Connect(function() Update(not state) end)
+            
+            Library.Flags[flag .. "_Set"] = function(val) Update(val) end
         end
-
-        -- Add other elements (Sliders, Textboxes) with similar Flag logic...
 
         return TabElements
-    end
-
-    -- Configuration System Logic
-    function Elements:CreateConfigSystem()
-        local ConfigTab = self:CreateTab("Config")
-        local configName = "default"
-
-        -- Config Functions
-        local function GetConfigs()
-            local list = {}
-            if listfiles then
-                for _, file in ipairs(listfiles(Library.Folder)) do
-                    if file:sub(-#Library.Ext) == Library.Ext then
-                        local cleanName = file:gsub(Library.Folder .. "\\", ""):gsub(Library.Folder .. "/", ""):gsub(Library.Ext, "")
-                        table.insert(list, cleanName)
-                    end
-                end
-            end
-            return list
-        end
-
-        local function SaveConfig(name)
-            if writefile then
-                local data = HttpService:JSONEncode(Library.Flags)
-                writefile(Library.Folder .. "/" .. name .. Library.Ext, data)
-            end
-        end
-
-        local function LoadConfig(name)
-            local path = Library.Folder .. "/" .. name .. Library.Ext
-            if isfile and isfile(path) and readfile then
-                local success, decoded = pcall(function()
-                    return HttpService:JSONDecode(readfile(path))
-                end)
-                if success and type(decoded) == "table" then
-                    for flag, value in pairs(decoded) do
-                        if Library.Flags[flag .. "_Set"] then
-                            Library.Flags[flag .. "_Set"](value)
-                        end
-                    end
-                end
-            end
-        end
-
-        local function DeleteConfig(name)
-            local path = Library.Folder .. "/" .. name .. Library.Ext
-            if isfile and isfile(path) and delfile then
-                delfile(path)
-            end
-        end
-
-        local function SetAutoload(name)
-            if writefile then
-                writefile(Library.Folder .. "/autoload.txt", name)
-            end
-        end
-
-        -- Config UI Elements
-        ConfigTab:CreateTextbox("Config Name", "Enter name...", function(val)
-            configName = val
-        end)
-
-        ConfigTab:CreateButton("Save Config", function()
-            if configName ~= "" then SaveConfig(configName) end
-        end)
-
-        ConfigTab:CreateButton("Load Config", function()
-            if configName ~= "" then LoadConfig(configName) end
-        end)
-
-        ConfigTab:CreateButton("Delete Config", function()
-            if configName ~= "" then DeleteConfig(configName) end
-        end)
-
-        ConfigTab:CreateButton("Set as Autoload", function()
-            if configName ~= "" then SetAutoload(configName) end
-        end)
-
-        -- Handle Autoload on script execution
-        task.spawn(function()
-            local autoPath = Library.Folder .. "/autoload.txt"
-            if isfile and isfile(autoPath) and readfile then
-                local autoName = readfile(autoPath)
-                if autoName and autoName ~= "" then
-                    LoadConfig(autoName)
-                end
-            end
-        end)
     end
 
     return Elements
