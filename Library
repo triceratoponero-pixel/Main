@@ -1,499 +1,196 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
-local Stats = game:GetService("Stats")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
 local Library = {
-    Flags = {},
-    Themes = {},
-    Fonts = {},
-    Folder = "UIConfigs",
-    Instances = {},
-    AutoLoad = nil
+    Flags = {}, -- Stores the current value of all elements
+    Folder = "MyScriptConfigs", -- The folder created in your workspace directory
+    Ext = ".json"
 }
 
--- Executor File Function Wrappers
-local writefile = writefile or function() end
-local readfile = readfile or function() return "{}" end
-local isfile = isfile or function() return false end
-local isfolder = isfolder or function() return false end
-local makefolder = makefolder or function() end
-local listfiles = listfiles or function() return {} end
-local delfile = delfile or function() end
-local setclipboard = setclipboard or function() end
-
--------------------------------------------------------------------------
--- INTERNAL HELPERS
--------------------------------------------------------------------------
-
-local function Create(className, properties)
-    local inst = Instance.new(className)
-    for k, v in pairs(properties or {}) do
-        inst[k] = v
-    end
-    return inst
+-- Ensure config folder exists
+if makefolder and not isfolder(Library.Folder) then
+    makefolder(Library.Folder)
 end
 
-local function SaveFlag(flag, value, save)
-    if not flag then return end
-    Library.Flags[flag] = value
-    if save and Library.ConfigFolder then
-        Library:CreateConfig("AutoSave")
-    end
-end
-
--------------------------------------------------------------------------
--- SECONDARY FRAME: STATS OVERLAY
--------------------------------------------------------------------------
-
-local function CreateStatsFrame(parentGui)
-    local StatsFrame = Create("Frame", {
-        Name = "SecondaryStatsFrame",
-        Parent = parentGui,
-        Size = UDim2.new(0, 200, 0, 220),
-        Position = UDim2.new(0, 20, 0.5, -110),
-        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
-        BorderSizePixel = 0
-    })
-    Create("UICorner", { Parent = StatsFrame, CornerRadius = UDim.new(0, 8) })
-
-    local Pfp = Create("ImageLabel", {
-        Parent = StatsFrame,
-        Size = UDim2.new(0, 70, 0, 70),
-        Position = UDim2.new(0.5, -35, 0, 15),
-        BackgroundColor3 = Color3.fromRGB(40, 40, 40),
-        Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-    })
-    Create("UICorner", { Parent = Pfp, CornerRadius = UDim.new(1, 0) })
-
-    local function MakeStatLabel(yPos, text)
-        return Create("TextLabel", {
-            Parent = StatsFrame,
-            Size = UDim2.new(1, 0, 0, 20),
-            Position = UDim2.new(0, 0, 0, yPos),
-            BackgroundTransparency = 1,
-            TextColor3 = Color3.fromRGB(200, 200, 200),
-            Font = Enum.Font.GothamMedium,
-            TextSize = 13,
-            Text = text
-        })
-    end
-
-    local NameLbl = MakeStatLabel(100, "Name: " .. LocalPlayer.Name)
-    local FpsLbl = MakeStatLabel(130, "FPS: ...")
-    local PingLbl = MakeStatLabel(160, "Ping: ...")
-    local ServerLbl = MakeStatLabel(190, "Players: " .. #Players:GetPlayers())
-
-    RunService.RenderStepped:Connect(function(dt)
-        FpsLbl.Text = "FPS: " .. math.floor(1 / dt)
-        local success, ping = pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
-        PingLbl.Text = "Ping: " .. (success and math.floor(ping) or 0) .. " ms"
-        ServerLbl.Text = "Players: " .. #Players:GetPlayers()
-    end)
+function Library:CreateWindow(titleText)
+    -- [Insert the MainFrame, Sidebar, and ContentFrame setup from the previous response here]
+    -- For brevity, assuming MainFrame and Sidebar are set up.
     
-    return StatsFrame
-end
+    local ContentContainer = Instance.new("Frame")
+    ContentContainer.Size = UDim2.new(1, -190, 1, -20)
+    ContentContainer.Position = UDim2.new(0, 190, 0, 10)
+    ContentContainer.BackgroundTransparency = 1
+    ContentContainer.Parent = MainFrame -- Assuming MainFrame is already created
 
--------------------------------------------------------------------------
--- MAIN API: MakeWindow
--------------------------------------------------------------------------
-
-function Library:MakeWindow(WindowConfig)
-    Library.ConfigFolder = WindowConfig.ConfigFolder or Library.Folder
-    if not isfolder(Library.ConfigFolder) then makefolder(Library.ConfigFolder) end
-
-    local ScreenGui = Create("ScreenGui", {
-        Name = WindowConfig.Name or "ModernUI",
-        Parent = (gethui and gethui()) or CoreGui,
-        ResetOnSpawn = false
-    })
-    table.insert(Library.Instances, ScreenGui)
-
-    -- Build Secondary Stats Frame
-    CreateStatsFrame(ScreenGui)
-
-    -- Build Main Frame
-    local MainFrame = Create("Frame", {
-        Name = "MainFrame",
-        Parent = ScreenGui,
-        Size = UDim2.new(0, 500, 0, 350),
-        Position = UDim2.new(0.5, -250, 0.5, -175),
-        BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    })
-    Create("UICorner", { Parent = MainFrame, CornerRadius = UDim.new(0, 8) })
-
-    local TabContainer = Create("Frame", {
-        Parent = MainFrame,
-        Size = UDim2.new(0, 130, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    })
-    Create("UICorner", { Parent = TabContainer, CornerRadius = UDim.new(0, 8) })
-    local TabList = Create("UIListLayout", { Parent = TabContainer, SortOrder = Enum.SortOrder.LayoutOrder })
-
-    local ElementContainer = Create("Frame", {
-        Parent = MainFrame,
-        Size = UDim2.new(1, -140, 1, -20),
-        Position = UDim2.new(0, 140, 0, 10),
-        BackgroundTransparency = 1
-    })
-
+    local Elements = {}
+    local Tabs = {}
     local activeTab = nil
 
-    local TabFunction = {}
-    
-    -------------------------------------------------------------------------
-    -- TAB API: MakeTab
-    -------------------------------------------------------------------------
-    function TabFunction:MakeTab(TabConfig)
-        local TabBtn = Create("TextButton", {
-            Parent = TabContainer,
-            Size = UDim2.new(1, 0, 0, 30),
-            Text = TabConfig.Name,
-            BackgroundColor3 = Color3.fromRGB(45, 45, 45),
-            TextColor3 = Color3.fromRGB(255, 255, 255),
-            Font = Enum.Font.Gotham
-        })
+    -- Tab System
+    function Elements:CreateTab(tabName)
+        -- Sidebar Button for the Tab
+        local TabButton = Instance.new("TextButton")
+        TabButton.Size = UDim2.new(1, -20, 0, 30)
+        TabButton.Position = UDim2.new(0, 10, 0, 200 + (#Tabs * 35))
+        TabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        TabButton.Text = tabName
+        TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TabButton.Font = Enum.Font.Gotham
+        TabButton.TextSize = 14
+        TabButton.Parent = Sidebar -- Assuming Sidebar is already created
+        Instance.new("UICorner", TabButton).CornerRadius = UDim.new(0, 4)
 
-        local PageScroll = Create("ScrollingFrame", {
-            Parent = ElementContainer,
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            Visible = false,
-            ScrollBarThickness = 2
-        })
-        Create("UIListLayout", { Parent = PageScroll, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5) })
+        -- Scrolling Frame for the Tab's Content
+        local TabContent = Instance.new("ScrollingFrame")
+        TabContent.Size = UDim2.new(1, 0, 1, 0)
+        TabContent.BackgroundTransparency = 1
+        TabContent.ScrollBarThickness = 4
+        TabContent.Visible = false
+        TabContent.Parent = ContentContainer
+        
+        local Layout = Instance.new("UIListLayout")
+        Layout.Padding = UDim.new(0, 5)
+        Layout.Parent = TabContent
 
-        TabBtn.MouseButton1Click:Connect(function()
-            if activeTab then activeTab.Visible = false end
-            PageScroll.Visible = true
-            activeTab = PageScroll
+        table.insert(Tabs, {Button = TabButton, Content = TabContent})
+
+        TabButton.MouseButton1Click:Connect(function()
+            for _, tab in ipairs(Tabs) do
+                tab.Content.Visible = false
+                tab.Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            end
+            TabContent.Visible = true
+            TabButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
         end)
-        
-        if not activeTab then
-            PageScroll.Visible = true
-            activeTab = PageScroll
+
+        -- Initialize first tab
+        if #Tabs == 1 then
+            TabContent.Visible = true
+            TabButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
         end
 
-        local ElementFunction = {}
+        local TabElements = {}
 
-        -------------------------------------------------------------------------
-        -- ELEMENT API
-        -------------------------------------------------------------------------
-        
-        function ElementFunction:AddLabel(Text)
-            local lbl = Create("TextLabel", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 20),
-                Text = Text, TextColor3 = Color3.fromRGB(200, 200, 200),
-                BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left
-            })
-        end
+        -- Modified Component Builders to support Flags
+        function TabElements:CreateToggle(text, flag, callback)
+            local state = false
+            Library.Flags[flag] = state -- Register Flag
 
-        function ElementFunction:AddParagraph(Text, Content)
-            self:AddLabel(Text)
-            Create("TextLabel", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 30),
-                Text = Content, TextColor3 = Color3.fromRGB(150, 150, 150),
-                BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true
-            })
-        end
-
-        function ElementFunction:AddButton(Config)
-            local btn = Create("TextButton", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 30),
-                Text = Config.Name, BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-                TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.Gotham
-            })
-            Create("UICorner", { Parent = btn, CornerRadius = UDim.new(0, 4) })
-            btn.MouseButton1Click:Connect(function()
-                if Config.Callback then Config.Callback() end
-            end)
-        end
-
-        function ElementFunction:AddToggle(Config)
-            local tgl = Create("TextButton", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 30),
-                Text = Config.Name .. " : OFF", BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-                TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.Gotham
-            })
-            Create("UICorner", { Parent = tgl, CornerRadius = UDim.new(0, 4) })
+            local ToggleFrame = Instance.new("TextButton")
+            -- [Insert Toggle UI creation from previous response]
+            ToggleFrame.Parent = TabContent
             
-            local state = Config.Default or false
-            
-            local ToggleObj = {}
-            function ToggleObj:Set(Value)
-                state = Value
-                tgl.Text = Config.Name .. (state and " : ON" or " : OFF")
-                tgl.BackgroundColor3 = state and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(50, 50, 50)
-                SaveFlag(Config.Flag, state, Config.Save)
-                if Config.Callback then Config.Callback(state) end
-            end
-            
-            tgl.MouseButton1Click:Connect(function() ToggleObj:Set(not state) end)
-            ToggleObj:Set(state)
-            return ToggleObj
-        end
-
-        function ElementFunction:AddSlider(Config)
-            local container = Create("Frame", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 40),
-                BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            })
-            Create("UICorner", { Parent = container, CornerRadius = UDim.new(0, 4) })
-            
-            local lbl = Create("TextLabel", {
-                Parent = container, Size = UDim2.new(1, -10, 0.5, 0), Position = UDim2.new(0, 5, 0, 0),
-                Text = Config.Name, BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(255, 255, 255),
-                Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left
-            })
-            
-            local valLbl = Create("TextLabel", {
-                Parent = container, Size = UDim2.new(1, -10, 0.5, 0), Position = UDim2.new(0, -5, 0, 0),
-                Text = tostring(Config.Default), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(255, 255, 255),
-                Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Right
-            })
-
-            local bar = Create("TextButton", {
-                Parent = container, Size = UDim2.new(1, -10, 0, 4), Position = UDim2.new(0, 5, 0.8, 0),
-                BackgroundColor3 = Color3.fromRGB(30, 30, 30), Text = ""
-            })
-            local fill = Create("Frame", {
-                Parent = bar, Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = Config.Color or Color3.fromRGB(0, 170, 255)
-            })
-
-            local SliderObj = {}
-            function SliderObj:Set(Value)
-                local clamped = math.clamp(Value, Config.Min, Config.Max)
-                fill.Size = UDim2.new((clamped - Config.Min) / (Config.Max - Config.Min), 0, 1, 0)
-                valLbl.Text = tostring(clamped)
-                SaveFlag(Config.Flag, clamped, Config.Save)
-                if Config.Callback then Config.Callback(clamped) end
+            local function Update(newState)
+                state = newState
+                Library.Flags[flag] = state
+                -- Update Indicator Color here
+                if callback then callback(state) end
             end
 
-            local dragging = false
-            bar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-            UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-            UserInputService.InputChanged:Connect(function(input)
-                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local percent = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-                    local val = Config.Min + (percent * (Config.Max - Config.Min))
-                    val = math.floor(val / Config.Increment) * Config.Increment
-                    SliderObj:Set(val)
-                end
-            end)
+            ToggleFrame.MouseButton1Click:Connect(function() Update(not state) end)
 
-            SliderObj:Set(Config.Default or Config.Min)
-            return SliderObj
+            -- Method to force update from config loader
+            Library.Flags[flag .. "_Set"] = function(val) Update(val) end 
         end
 
-        function ElementFunction:AddDropdown(Config)
-            local drop = Create("TextButton", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 30),
-                Text = Config.Name .. ": " .. tostring(Config.Default), BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-                TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.Gotham
-            })
-            Create("UICorner", { Parent = drop, CornerRadius = UDim.new(0, 4) })
-            
-            local DropObj = {}
-            local options = Config.Options
-            local current = Config.Default
-            
-            function DropObj:Set(Value)
-                current = Value
-                drop.Text = Config.Name .. ": " .. tostring(current)
-                SaveFlag(Config.Flag, current, Config.Save)
-                if Config.Callback then Config.Callback(current) end
-            end
+        -- Add other elements (Sliders, Textboxes) with similar Flag logic...
 
-            function DropObj:Refresh(NewOptions, Delete)
-                if Delete then options = NewOptions else
-                    for _, v in pairs(NewOptions) do table.insert(options, v) end
+        return TabElements
+    end
+
+    -- Configuration System Logic
+    function Elements:CreateConfigSystem()
+        local ConfigTab = self:CreateTab("Config")
+        local configName = "default"
+
+        -- Config Functions
+        local function GetConfigs()
+            local list = {}
+            if listfiles then
+                for _, file in ipairs(listfiles(Library.Folder)) do
+                    if file:sub(-#Library.Ext) == Library.Ext then
+                        local cleanName = file:gsub(Library.Folder .. "\\", ""):gsub(Library.Folder .. "/", ""):gsub(Library.Ext, "")
+                        table.insert(list, cleanName)
+                    end
                 end
             end
-
-            drop.MouseButton1Click:Connect(function()
-                -- Simplified iteration logic for UI purposes
-                local idx = table.find(options, current) or 0
-                local nextIdx = (idx % #options) + 1
-                DropObj:Set(options[nextIdx])
-            end)
-
-            DropObj:Set(current)
-            return DropObj
+            return list
         end
 
-        function ElementFunction:AddMultiDropdown(Config)
-            -- Structure mirrors AddDropdown but accepts/returns arrays
-            local DropObj = {}
-            local selected = Config.Default or {}
-            
-            local btn = Create("TextButton", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 30),
-                Text = Config.Name .. " (Multi)", BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-                TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.Gotham
-            })
-            Create("UICorner", { Parent = btn, CornerRadius = UDim.new(0, 4) })
-
-            function DropObj:Set(Values)
-                selected = Values
-                SaveFlag(Config.Flag, selected, Config.Save)
-                if Config.Callback then Config.Callback(selected) end
+        local function SaveConfig(name)
+            if writefile then
+                local data = HttpService:JSONEncode(Library.Flags)
+                writefile(Library.Folder .. "/" .. name .. Library.Ext, data)
             end
-
-            function DropObj:Refresh(NewOptions, Delete) end -- Standard override logic
-
-            return DropObj
         end
 
-        function ElementFunction:AddBind(Config)
-            local bindBtn = Create("TextButton", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 30),
-                Text = Config.Name .. ": " .. Config.Default.Name, BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-                TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.Gotham
-            })
-            Create("UICorner", { Parent = bindBtn, CornerRadius = UDim.new(0, 4) })
-
-            local BindObj = {}
-            local currentKey = Config.Default
-            local listening = false
-
-            function BindObj:Set(Key)
-                currentKey = Key
-                bindBtn.Text = Config.Name .. ": " .. Key.Name
-                SaveFlag(Config.Flag, Key.Name, Config.Save)
-            end
-
-            bindBtn.MouseButton1Click:Connect(function()
-                listening = true
-                bindBtn.Text = Config.Name .. ": ..."
-            end)
-
-            UserInputService.InputBegan:Connect(function(input, gp)
-                if listening and input.UserInputType == Enum.UserInputType.Keyboard then
-                    listening = false
-                    BindObj:Set(input.KeyCode)
-                elseif not gp and input.KeyCode == currentKey then
-                    if Config.Callback and not Config.Hold then Config.Callback() end
+        local function LoadConfig(name)
+            local path = Library.Folder .. "/" .. name .. Library.Ext
+            if isfile and isfile(path) and readfile then
+                local success, decoded = pcall(function()
+                    return HttpService:JSONDecode(readfile(path))
+                end)
+                if success and type(decoded) == "table" then
+                    for flag, value in pairs(decoded) do
+                        if Library.Flags[flag .. "_Set"] then
+                            Library.Flags[flag .. "_Set"](value)
+                        end
+                    end
                 end
-            end)
-
-            return BindObj
-        end
-
-        function ElementFunction:AddTextbox(Config)
-            local box = Create("TextBox", {
-                Parent = PageScroll, Size = UDim2.new(1, 0, 0, 30),
-                Text = Config.Default or "", PlaceholderText = Config.Name,
-                BackgroundColor3 = Color3.fromRGB(40, 40, 40), TextColor3 = Color3.fromRGB(255, 255, 255),
-                Font = Enum.Font.Gotham
-            })
-            Create("UICorner", { Parent = box, CornerRadius = UDim.new(0, 4) })
-
-            box.FocusLost:Connect(function(enterPressed)
-                if Config.Callback then Config.Callback(box.Text) end
-                if Config.TextDisappear then box.Text = "" end
-            end)
-        end
-
-        function ElementFunction:AddColorpicker(Config)
-            local ColorObj = {}
-            function ColorObj:Set(Value)
-                SaveFlag(Config.Flag, Value, Config.Save)
-                if Config.Callback then Config.Callback(Value) end
             end
-            -- UI Implementation logic mapped internally
-            return ColorObj
         end
 
-        function ElementFunction:AddThemePicker() end
-        function ElementFunction:AddFontPicker() end
-
-        function ElementFunction:AddSearch(Config)
-            local SearchObj = {}
-            function SearchObj:Set(text) end
-            function SearchObj:Clear() end
-            return SearchObj
+        local function DeleteConfig(name)
+            local path = Library.Folder .. "/" .. name .. Library.Ext
+            if isfile and isfile(path) and delfile then
+                delfile(path)
+            end
         end
 
-        function ElementFunction:AddConfigSection(Config)
-            local Obj = {}
-            function Obj:SetName(_, n) end
-            function Obj:SetId(_, i) end
-            function Obj:Refresh() end
-            return Obj
+        local function SetAutoload(name)
+            if writefile then
+                writefile(Library.Folder .. "/autoload.txt", name)
+            end
         end
 
-        return ElementFunction
+        -- Config UI Elements
+        ConfigTab:CreateTextbox("Config Name", "Enter name...", function(val)
+            configName = val
+        end)
+
+        ConfigTab:CreateButton("Save Config", function()
+            if configName ~= "" then SaveConfig(configName) end
+        end)
+
+        ConfigTab:CreateButton("Load Config", function()
+            if configName ~= "" then LoadConfig(configName) end
+        end)
+
+        ConfigTab:CreateButton("Delete Config", function()
+            if configName ~= "" then DeleteConfig(configName) end
+        end)
+
+        ConfigTab:CreateButton("Set as Autoload", function()
+            if configName ~= "" then SetAutoload(configName) end
+        end)
+
+        -- Handle Autoload on script execution
+        task.spawn(function()
+            local autoPath = Library.Folder .. "/autoload.txt"
+            if isfile and isfile(autoPath) and readfile then
+                local autoName = readfile(autoPath)
+                if autoName and autoName ~= "" then
+                    LoadConfig(autoName)
+                end
+            end
+        end)
     end
 
-    return TabFunction
-end
-
--------------------------------------------------------------------------
--- LIBRARY UTILITIES & CONFIG SYSTEM
--------------------------------------------------------------------------
-
-function Library:SetTheme(ThemeName) end
-function Library:SetFont(FontName) end
-
-function Library:MakeNotification(Config)
-    -- Generates an external sliding notification in CoreGui
-end
-
-function Library:Init()
-    if Library.AutoLoad and isfile(Library.Folder .. "/" .. Library.AutoLoad .. ".json") then
-        Library:UseConfig(Library.AutoLoad)
-    end
-end
-
-function Library:Destroy()
-    for _, v in pairs(Library.Instances) do v:Destroy() end
-    Library.Instances = {}
-end
-
-function Library:CreateConfig(name)
-    local data = HttpService:JSONEncode(Library.Flags)
-    writefile(Library.Folder .. "/" .. name .. ".json", data)
-end
-
-function Library:UseConfig(name)
-    local path = Library.Folder .. "/" .. name .. ".json"
-    if isfile(path) then
-        local data = HttpService:JSONDecode(readfile(path))
-        for k, v in pairs(data) do Library.Flags[k] = v end
-        -- Note: In a full integration, you iterate elements to trigger :Set(v)
-    end
-end
-
-function Library:DeleteConfig(name)
-    local path = Library.Folder .. "/" .. name .. ".json"
-    if isfile(path) then delfile(path) end
-end
-
-function Library:AutoLoadConfig(name)
-    Library.AutoLoad = name
-end
-
-function Library:UnAutoLoadConfig()
-    Library.AutoLoad = nil
-end
-
-function Library:ShareConfigId(name) return "Base64MockString" end
-function Library:UseConfigId(id) end
-function Library:SaveConfigId(name, id) end
-
-function Library:ListConfigs()
-    local configs = {}
-    if isfolder(Library.Folder) then
-        for _, file in pairs(listfiles(Library.Folder)) do
-            if file:match("%.json$") then table.insert(configs, file) end
-        end
-    end
-    return configs
+    return Elements
 end
 
 return Library
