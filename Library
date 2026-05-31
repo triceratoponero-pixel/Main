@@ -14,12 +14,10 @@ function GhostLib:CreateWindow()
 	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-	-- =================================================================
-	-- DYNAMIC SQUID PROPULSION INTRO ANIMATION (FULL SCREEN FIX)
-	-- =================================================================
+	-- INTRO A SCHERMO INTERO (Risolto il ritaglio della TopBar)
 	local IntroGui = Instance.new("ScreenGui")
 	IntroGui.Name = "GhostIntro_Layer"
-	IntroGui.IgnoreGuiInset = true -- Forces canvas coverage over the topbar
+	IntroGui.IgnoreGuiInset = true 
 	IntroGui.ResetOnSpawn = false
 	IntroGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	IntroGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -124,17 +122,14 @@ function GhostLib:CreateWindow()
 		table.insert(Tentacles, wave)
 	end
 
-	-- =================================================================
-	-- MODERN LIGHT THEME MAIN WINDOW INTERFACE
-	-- =================================================================
-	local MainFrame = Instance.new("Frame")
+	-- FINESTRA PRINCIPALE
+	local MainFrame = Instance.new("CanvasGroup")
 	MainFrame.Name = "MainFrame"
 	MainFrame.Size = UDim2.new(0, 780, 0, 500)
 	MainFrame.Position = UDim2.new(0.5, -390, 0.5, -250)
 	MainFrame.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
 	MainFrame.BorderSizePixel = 0
 	MainFrame.Visible = false 
-	MainFrame.ClipsDescendants = true
 	MainFrame.Parent = ScreenGui
 
 	local MainCorner = Instance.new("UICorner")
@@ -216,10 +211,11 @@ function GhostLib:CreateWindow()
 	local IsMinimized = false
 	local NormalSize = MainFrame.Size
 	
+	-- ANIMAZIONE CHIUSURA
 	CloseBtn.MouseButton1Click:Connect(function()
-		local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 			Size = UDim2.new(0, 780, 0, 0),
-			Position = MainFrame.Position + UDim2.new(0, 0, 0, 250)
+			GroupTransparency = 1
 		})
 		closeTween:Play()
 		closeTween.Completed:Connect(function()
@@ -228,22 +224,25 @@ function GhostLib:CreateWindow()
 		end)
 	end)
 
+	-- ANIMAZIONE MINIMIZZA
 	MinimizeBtn.MouseButton1Click:Connect(function()
 		IsMinimized = not IsMinimized
 		if IsMinimized then
-			TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			local minimizeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
 				Size = UDim2.new(0, 780, 0, 42)
-			}):Play()
+			})
+			minimizeTween:Play()
 			MinimizeBtn.Text = "+"
 		else
-			TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			local restoreTween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 				Size = NormalSize
-			}):Play()
+			})
+			restoreTween:Play()
 			MinimizeBtn.Text = "−"
 		end
 	end)
 
-	-- Drag Implementation
+	-- Drag Logic
 	local dragging, dragInput, dragStart, startPos
 	TopBar.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -267,7 +266,7 @@ function GhostLib:CreateWindow()
 		end
 	end)
 
-	-- Run Loop for biological tracking intro
+	-- Intro Heartbeat Runtime Loop
 	local introDuration = 4.0
 	local ghostTween = TweenService:Create(Ghost, TweenInfo.new(introDuration, Enum.EasingStyle.Linear), {
 		Position = UDim2.new(0, 660, 0.5, -55)
@@ -287,12 +286,10 @@ function GhostLib:CreateWindow()
 
 		if Ghost and Ghost:IsDescendantOf(game) then
 			Ghost.Size = UDim2.new(0, normalW + deltaWidth, 0, normalH + deltaHeight)
-			
 			for positionIdx, tentacleNode in ipairs(Tentacles) do
 				local varianceOffset = positionIdx * 0.4
 				local calculatedSwing = math.cos(phaseAngle + varianceOffset) * 28
 				local dynamicLength = 22 + (math.sin(phaseAngle + varianceOffset) * 9)
-				
 				tentacleNode.Rotation = calculatedSwing
 				tentacleNode.Size = UDim2.new(waveWidth, 2, 0, dynamicLength)
 			end
@@ -307,20 +304,16 @@ function GhostLib:CreateWindow()
 					task.spawn(function()
 						local startPositionValue = data.Label.Position
 						local layoutFallDropY = startPositionValue + UDim2.new(0, 0, 0, 45)
-						
 						TweenService:Create(data.Label, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 							Position = layoutFallDropY,
 							Rotation = 180,
 							TextColor3 = Color3.fromRGB(240, 240, 240)
 						}):Play()
-						
 						TweenService:Create(data.Stroke, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 							Thickness = 3.5,
 							Transparency = 0
 						}):Play()
-
 						task.wait(0.35)
-
 						TweenService:Create(data.Label, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 							Position = startPositionValue,
 							Rotation = 360
@@ -333,7 +326,6 @@ function GhostLib:CreateWindow()
 
 	task.delay(introDuration, function()
 		if processingConnection then processingConnection:Disconnect() end
-		
 		local transitionCanvasFade = TweenService:Create(IntroContainer, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			BackgroundTransparency = 1
 		})
@@ -342,7 +334,6 @@ function GhostLib:CreateWindow()
 			TweenService:Create(data.Stroke, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 1 }):Play()
 		end
 		TweenService:Create(Ghost, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { GroupTransparency = 1 }):Play()
-		
 		transitionCanvasFade:Play()
 		transitionCanvasFade.Completed:Connect(function()
 			IntroGui:Destroy()
@@ -350,9 +341,7 @@ function GhostLib:CreateWindow()
 		end)
 	end)
 
-	-- =================================================================
-	-- LATERAL NAVIGATION SIDEBAR PANEL
-	-- =================================================================
+	-- SIDEBAR NAVIGATION
 	local LateralFrame = Instance.new("Frame")
 	LateralFrame.Name = "LateralFrame"
 	LateralFrame.Size = UDim2.new(0, 220, 1, -42)
@@ -434,7 +423,7 @@ function GhostLib:CreateWindow()
 		if success and gameInfo then
 			GameNameLabel.Text = "Game: " .. gameInfo.Name
 		else
-			GameNameLabel.Text = "Game: Private Workspace"
+			GameNameLabel.Text = "Game: Studio Workspace"
 		end
 	end)
 
@@ -461,9 +450,7 @@ function GhostLib:CreateWindow()
 	TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	TabListLayout.Parent = TabButtonsContainer
 
-	-- =================================================================
-	-- MAIN CONTENT VIEWPORT ARCHITECTURE
-	-- =================================================================
+	-- CONTAINER CONTENUTO
 	local ContentFrame = Instance.new("Frame")
 	ContentFrame.Name = "ContentFrame"
 	ContentFrame.Size = UDim2.new(1, -220, 1, -42)
@@ -505,9 +492,7 @@ function GhostLib:CreateWindow()
 		return base, label
 	end
 
-	-- =================================================================
-	-- MODULE WORKFLOW AND CREATOR API
-	-- =================================================================
+	-- METODI API
 	function GhostLib:CreateTab(tabName)
 		local TabButton = Instance.new("TextButton")
 		TabButton.Size = UDim2.new(1, 0, 0, 36)
@@ -522,37 +507,52 @@ function GhostLib:CreateWindow()
 		tStroke.Color = Color3.fromRGB(230, 230, 230)
 		tStroke.Thickness = 1
 
-		local TabContent = Instance.new("ScrollingFrame")
+		local TabContent = Instance.new("CanvasGroup") -- Cambiato in CanvasGroup per la sfumatura di transizione
 		TabContent.Size = UDim2.new(1, -32, 1, -32)
 		TabContent.Position = UDim2.new(0, 16, 0, 16)
 		TabContent.BackgroundTransparency = 1
 		TabContent.Visible = false
-		TabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
-		TabContent.ScrollBarThickness = 3
-		TabContent.ScrollBarImageColor3 = Color3.fromRGB(200, 200, 200)
+		TabContent.GroupTransparency = 0
 		TabContent.Parent = TabsFolder
+
+		local ContainerScrolling = Instance.new("ScrollingFrame")
+		ContainerScrolling.Size = UDim2.new(1, 0, 1, 0)
+		ContainerScrolling.BackgroundTransparency = 1
+		ContainerScrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
+		ContainerScrolling.ScrollBarThickness = 3
+		ContainerScrolling.ScrollBarImageColor3 = Color3.fromRGB(200, 200, 200)
+		ContainerScrolling.Parent = TabContent
 
 		local ContentLayout = Instance.new("UIListLayout")
 		ContentLayout.Padding = UDim.new(0, 8)
 		ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		ContentLayout.Parent = TabContent
+		ContentLayout.Parent = ContainerScrolling
 
 		ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-			TabContent.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 15)
+			ContainerScrolling.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 15)
 		end)
 
 		if isFirstTab then
 			TabContent.Visible = true
-			TabContent.Size = UDim2.new(1, -32, 1, -32)
 			TabButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 			TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 			isFirstTab = false
 		end
 
+		-- ANIMAZIONE CAMBIO TAB
 		TabButton.MouseButton1Click:Connect(function()
 			for _, child in pairs(TabsFolder:GetChildren()) do
-				child.Visible = false
+				if child:IsA("CanvasGroup") and child.Visible and child ~= TabContent then
+					local fadeOut = TweenService:Create(child, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						GroupTransparency = 1
+					})
+					fadeOut:Play()
+					fadeOut.Completed:Connect(function()
+						child.Visible = false
+					end)
+				end
 			end
+			
 			for _, btn in pairs(TabButtonsContainer:GetChildren()) do
 				if btn:IsA("TextButton") then
 					TweenService:Create(btn, TweenInfo.new(0.2), {
@@ -562,23 +562,25 @@ function GhostLib:CreateWindow()
 				end
 			end
 			
+			TabContent.GroupTransparency = 1
 			TabContent.Visible = true
-			TabContent.Size = UDim2.new(1, -32, 1, -100)
-			TweenService:Create(TabContent, TweenInfo.new(0.35, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
-				Size = UDim2.new(1, -32, 1, -32)
+			
+			TweenService:Create(TabContent, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				GroupTransparency = 0
 			}):Play()
 
 			TweenService:Create(TabButton, TweenInfo.new(0.2), {
-				BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-			    ,TextColor3 = Color3.fromRGB(255, 255, 255)
+				BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+				TextColor3 = Color3.fromRGB(255, 255, 255)
 			}):Play()
 		end)
 
 		local ElementCreator = {}
 
+		-- ANIMAZIONE TOGGLE
 		function ElementCreator:CreateToggle(name, default, callback)
 			local enabled = default or false
-			local base, lbl = CreateElementBase(name, TabContent)
+			local base, lbl = CreateElementBase(name, ContainerScrolling)
 			
 			local btn = Instance.new("TextButton")
 			btn.Size = UDim2.new(0, 44, 0, 22)
@@ -600,21 +602,15 @@ function GhostLib:CreateWindow()
 				local targetPos = enabled and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 4, 0.5, -8)
 				local targetBg = enabled and Color3.fromRGB(15, 15, 15) or Color3.fromRGB(220, 220, 220)
 				
-				TweenService:Create(circle, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = targetPos}):Play()
-				TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = targetBg}):Play()
-				
-				-- Micro visual pop impact
-				TweenService:Create(base, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(250, 250, 250)}):Play()
-				task.delay(0.1, function()
-					TweenService:Create(base, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-				end)
-
+				TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = targetPos}):Play()
+				TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = targetBg}):Play()
 				callback(enabled)
 			end)
 		end
 
+		-- ANIMAZIONE BUTTON
 		function ElementCreator:CreateButton(name, callback)
-			local base, lbl = CreateElementBase(name, TabContent)
+			local base, lbl = CreateElementBase(name, ContainerScrolling)
 			lbl.Size = UDim2.new(1, -130, 1, 0)
 
 			local btn = Instance.new("TextButton")
@@ -644,8 +640,9 @@ function GhostLib:CreateWindow()
 			end)
 		end
 
+		-- ANIMAZIONE SLIDER
 		function ElementCreator:CreateSlider(name, min, max, default, callback)
-			local base, lbl = CreateElementBase(name, TabContent)
+			local base, lbl = CreateElementBase(name, ContainerScrolling)
 			
 			local sliderValue = Instance.new("TextLabel")
 			sliderValue.Size = UDim2.new(0, 45, 1, 0)
@@ -717,7 +714,7 @@ function GhostLib:CreateWindow()
 		end
 
 		function ElementCreator:CreateKeybind(name, default, callback)
-			local base, lbl = CreateElementBase(name, TabContent)
+			local base, lbl = CreateElementBase(name, ContainerScrolling)
 			local currentBind = default
 
 			local btn = Instance.new("TextButton")
@@ -754,7 +751,7 @@ function GhostLib:CreateWindow()
 		end
 
 		function ElementCreator:CreateTextBox(name, placeholder, callback)
-			local base, lbl = CreateElementBase(name, TabContent)
+			local base, lbl = CreateElementBase(name, ContainerScrolling)
 			
 			local box = Instance.new("TextBox")
 			box.Size = UDim2.new(0, 150, 0, 28)
@@ -781,8 +778,9 @@ function GhostLib:CreateWindow()
 			end)
 		end
 
+		-- ANIMAZIONE DROPDOWN (Apertura Fluida)
 		function ElementCreator:CreateDropdown(name, list, callback)
-			local base, lbl = CreateElementBase(name, TabContent, 46)
+			local base, lbl = CreateElementBase(name, ContainerScrolling, 46)
 			local expanded = false
 
 			local btn = Instance.new("TextButton")
@@ -858,8 +856,9 @@ function GhostLib:CreateWindow()
 			end)
 		end
 
+		-- ANIMAZIONE MULTI DROPDOWN
 		function ElementCreator:CreateMultiDropdown(name, list, callback)
-			local base, lbl = CreateElementBase(name, TabContent, 46)
+			local base, lbl = CreateElementBase(name, ContainerScrolling, 46)
 			local expanded = false
 			local selectedItems = {}
 
