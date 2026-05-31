@@ -164,7 +164,7 @@ function GhostLib:CreateWindow(options)
 		lbl.Position = UDim2.new(0, 22, 0, 0)
 		lbl.BackgroundTransparency = 1
 		lbl.Text = msg
-		lbl.Font = Enum.Font.Montserrat
+		lbl.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 		lbl.TextSize = 12
 		lbl.TextColor3 = T.TextSecondary
 		lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -411,7 +411,7 @@ function GhostLib:CreateWindow(options)
 	CloseBtn.BackgroundColor3 = T.CloseBtn
 	CloseBtn.BackgroundTransparency = 0.8
 	CloseBtn.Text = "×"
-	CloseBtn.Font = Enum.Font.Montserrat
+	CloseBtn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 	CloseBtn.TextSize = 18
 	CloseBtn.TextColor3 = T.CloseBtnText
 	CloseBtn.Parent = WindowControls
@@ -423,7 +423,7 @@ function GhostLib:CreateWindow(options)
 	MinimizeBtn.BackgroundColor3 = T.Accent
 	MinimizeBtn.BackgroundTransparency = 0.9
 	MinimizeBtn.Text = "−"
-	MinimizeBtn.Font = Enum.Font.Montserrat
+	MinimizeBtn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 	MinimizeBtn.TextSize = 16
 	MinimizeBtn.TextColor3 = T.TextSecondary
 	MinimizeBtn.Parent = WindowControls
@@ -533,7 +533,7 @@ function GhostLib:CreateWindow(options)
 	PlayerName.Position = UDim2.new(0, 10, 0, 98)
 	PlayerName.BackgroundTransparency = 1
 	PlayerName.Text = "@" .. LocalPlayer.Name
-	PlayerName.Font = Enum.Font.Montserrat
+	PlayerName.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 	PlayerName.TextSize = 13
 	PlayerName.TextColor3 = T.TextSecondary
 	PlayerName.Parent = LateralFrame
@@ -553,7 +553,7 @@ function GhostLib:CreateWindow(options)
 		local l = Instance.new("TextLabel")
 		l.Size = UDim2.new(1, 0, 0, 18)
 		l.BackgroundTransparency = 1
-		l.Font = Enum.Font.Montserrat
+		l.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 		l.TextSize = 12
 		l.TextColor3 = T.TextMuted
 		l.TextXAlignment = Enum.TextXAlignment.Left
@@ -685,7 +685,7 @@ function GhostLib:CreateWindow(options)
 		TabButton.Size = UDim2.new(1, 0, 0, 36)
 		TabButton.BackgroundColor3 = T.Surface
 		TabButton.Text = icon and (icon .. "  " .. tabName) or tabName
-		TabButton.Font = Enum.Font.Montserrat
+		TabButton.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 		TabButton.TextColor3 = T.TextMuted
 		TabButton.TextSize = 13
 		TabButton.Parent = TabButtonsContainer
@@ -783,7 +783,6 @@ function GhostLib:CreateWindow(options)
 			lbl.Size = UDim2.new(1, 0, 0, style == "header" and 32 or 24)
 			lbl.BackgroundTransparency = 1
 			lbl.Text = text
-			lbl.Font = Enum.Font.Montserrat
 			lbl.TextSize = size
 			lbl.TextColor3 = color
 			lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -823,7 +822,7 @@ function GhostLib:CreateWindow(options)
 				lbl.AutomaticSize = Enum.AutomaticSize.X
 				lbl.BackgroundTransparency = 1
 				lbl.Text = "  " .. sectionTitle .. "  "
-				lbl.Font = Enum.Font.Montserrat
+				lbl.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 				lbl.TextSize = 11
 				lbl.TextColor3 = T.TextMuted
 				lbl.Parent = bg
@@ -842,7 +841,7 @@ function GhostLib:CreateWindow(options)
 			bodyLbl.Position = UDim2.new(0, 16, 0, 28)
 			bodyLbl.BackgroundTransparency = 1
 			bodyLbl.Text = body
-			bodyLbl.Font = Enum.Font.Montserrat
+			bodyLbl.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			bodyLbl.TextSize = 12
 			bodyLbl.TextColor3 = T.TextMuted
 			bodyLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -917,7 +916,7 @@ function GhostLib:CreateWindow(options)
 			btn.Size = UDim2.new(0, 100, 0, 30)
 			btn.Position = UDim2.new(1, -116, 0.5, -15)
 			btn.BackgroundColor3 = T.Accent
-			btn.Font = Enum.Font.Montserrat
+			btn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			btn.Text = "Execute"
 			btn.TextColor3 = T.AccentDark
 			btn.TextSize = 13
@@ -962,7 +961,7 @@ function GhostLib:CreateWindow(options)
 			valLabel.Position = UDim2.new(1, -61, 0, 0)
 			valLabel.BackgroundTransparency = 1
 			valLabel.Text = tostring(default)
-			valLabel.Font = Enum.Font.Montserrat
+			valLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			valLabel.TextSize = 13
 			valLabel.TextColor3 = T.TextMuted
 			valLabel.Parent = base
@@ -1067,7 +1066,7 @@ function GhostLib:CreateWindow(options)
 			btn.Size = UDim2.new(0, 110, 0, 28)
 			btn.Position = UDim2.new(1, -126, 0.5, -14)
 			btn.BackgroundColor3 = T.Input
-			btn.Font = Enum.Font.Montserrat
+			btn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			btn.Text = currentBind.Name
 			btn.TextColor3 = T.TextSecondary
 			btn.TextSize = 12
@@ -1117,7 +1116,7 @@ function GhostLib:CreateWindow(options)
 			box.Text = ""
 			box.PlaceholderText = placeholder or "Enter text..."
 			box.PlaceholderColor3 = T.TextDisabled
-			box.Font = Enum.Font.Montserrat
+			box.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			box.TextSize = 12
 			box.TextColor3 = T.TextSecondary
 			box.ClearTextOnFocus = false
@@ -1154,7 +1153,7 @@ function GhostLib:CreateWindow(options)
 			btn.Size = UDim2.new(0, 150, 0, 28)
 			btn.Position = UDim2.new(1, -166, 0, 9)
 			btn.BackgroundColor3 = T.Input
-			btn.Font = Enum.Font.Montserrat
+			btn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			btn.Text = "Select..."
 			btn.TextColor3 = T.TextSecondary
 			btn.TextSize = 12
@@ -1201,7 +1200,7 @@ function GhostLib:CreateWindow(options)
 				itemBtn.Size = UDim2.new(1, 0, 0, 28)
 				itemBtn.BackgroundTransparency = 1
 				itemBtn.Text = tostring(item)
-				itemBtn.Font = Enum.Font.Montserrat
+				itemBtn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 				itemBtn.TextColor3 = T.TextMuted
 				itemBtn.TextSize = 12
 				itemBtn.ZIndex = 21
@@ -1259,7 +1258,7 @@ function GhostLib:CreateWindow(options)
 			btn.Size = UDim2.new(0, 150, 0, 28)
 			btn.Position = UDim2.new(1, -166, 0, 9)
 			btn.BackgroundColor3 = T.Input
-			btn.Font = Enum.Font.Montserrat
+			btn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			btn.Text = "Multiple..."
 			btn.TextColor3 = T.TextSecondary
 			btn.TextSize = 12
@@ -1317,7 +1316,7 @@ function GhostLib:CreateWindow(options)
 				itemBtn.BackgroundTransparency = 0
 				itemBtn.BorderSizePixel = 0
 				itemBtn.Text = tostring(item)
-				itemBtn.Font = Enum.Font.Montserrat
+				itemBtn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 				itemBtn.TextColor3 = T.TextMuted
 				itemBtn.TextSize = 12
 				itemBtn.ZIndex = 21
@@ -1367,7 +1366,7 @@ function GhostLib:CreateWindow(options)
 			saveBtn.Size = UDim2.new(0, 80, 0, 28)
 			saveBtn.Position = UDim2.new(1, -186, 0.5, -14)
 			saveBtn.BackgroundColor3 = T.Accent
-			saveBtn.Font = Enum.Font.Montserrat
+			saveBtn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			saveBtn.Text = "Save"
 			saveBtn.TextColor3 = T.AccentDark
 			saveBtn.TextSize = 12
@@ -1378,7 +1377,7 @@ function GhostLib:CreateWindow(options)
 			loadBtn.Size = UDim2.new(0, 80, 0, 28)
 			loadBtn.Position = UDim2.new(1, -96, 0.5, -14)
 			loadBtn.BackgroundColor3 = T.Input
-			loadBtn.Font = Enum.Font.Montserrat
+			loadBtn.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			loadBtn.Text = "Load"
 			loadBtn.TextColor3 = T.TextSecondary
 			loadBtn.TextSize = 12
