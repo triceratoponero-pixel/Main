@@ -15,16 +15,15 @@ function GhostLib:CreateWindow()
 	ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 	-- =================================================================
-	-- DARK THEME MAIN WINDOW (Instantiated early for window controls)
+	-- DARK THEME MAIN WINDOW
 	-- =================================================================
-	
 	local MainFrame = Instance.new("Frame")
 	MainFrame.Name = "MainFrame"
 	MainFrame.Size = UDim2.new(0, 780, 0, 500)
 	MainFrame.Position = UDim2.new(0.5, -390, 0.5, -250)
 	MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 	MainFrame.BorderSizePixel = 0
-	MainFrame.Visible = false -- Kept hidden until intro completes
+	MainFrame.Visible = false 
 	MainFrame.Parent = ScreenGui
 
 	local MainCorner = Instance.new("UICorner")
@@ -133,9 +132,8 @@ function GhostLib:CreateWindow()
 	end)
 
 	-- =================================================================
-	-- ADVANCED INTRO ANIMATION (Per-Character 360 Fall & Neon Black Color Shift)
+	-- ADVANCED SQUID-LIKE INTRO ANIMATION
 	-- =================================================================
-	
 	local IntroContainer = Instance.new("Frame")
 	IntroContainer.Name = "IntroContainer"
 	IntroContainer.Size = UDim2.new(1, 0, 1, 0)
@@ -144,7 +142,6 @@ function GhostLib:CreateWindow()
 	IntroContainer.ZIndex = 100
 	IntroContainer.Parent = ScreenGui
 
-	-- Frame to construct individual letter blocks for "G H O S T"
 	local TextSequenceFrame = Instance.new("Frame")
 	TextSequenceFrame.Name = "TextSequenceFrame"
 	TextSequenceFrame.Size = UDim2.new(0, 600, 0, 150)
@@ -174,6 +171,7 @@ function GhostLib:CreateWindow()
 		TextLabel.TextSize = 120
 		TextLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
 		TextLabel.ZIndex = 103
+		-- FIXED: Resolved crash from invalid Enum.FontWeight value by using Bold
 		TextLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Bold)
 		TextLabel.Parent = LetterContainer
 
@@ -191,18 +189,17 @@ function GhostLib:CreateWindow()
 		})
 	end
 
-	-- Ghost Model Node
+	-- Ghost Node Structure
 	local Ghost = Instance.new("CanvasGroup")
 	Ghost.Name = "Ghost"
 	Ghost.Size = UDim2.new(0, 85, 0, 110)
-	Ghost.Position = UDim2.new(0, -120, 0.5, -55)
 	Ghost.BackgroundTransparency = 0
 	Ghost.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
 	Ghost.ZIndex = 105 
-	Ghost.Parent = IntroContainer
+	Ghost.Parent = TextSequenceFrame
+	Ghost.Position = UDim2.new(0, -150, 0.5, -55)
 	Instance.new("UICorner", Ghost).CornerRadius = UDim.new(0, 42)
 
-	-- Eyes
 	local Eye1 = Instance.new("Frame")
 	Eye1.Size = UDim2.new(0, 9, 0, 13)
 	Eye1.Position = UDim2.new(0.32, -4, 0.38, -6)
@@ -215,7 +212,6 @@ function GhostLib:CreateWindow()
 	Eye2.Position = UDim2.new(0.68, -4, 0.38, -6)
 	Eye2.Parent = Ghost
 
-	-- Mouth
 	local Mouth = Instance.new("Frame")
 	Mouth.Size = UDim2.new(0, 11, 0, 11)
 	Mouth.Position = UDim2.new(0.5, -5, 0.58, -5)
@@ -224,11 +220,12 @@ function GhostLib:CreateWindow()
 	Mouth.Parent = Ghost
 	Instance.new("UICorner", Mouth).CornerRadius = UDim.new(1, 0)
 
-	-- Wave parameters
+	-- Tentacles Structure
+	local Tentacles = {}
 	local waveWidth = 1 / 5
 	for i = 1, 5 do
 		local wave = Instance.new("Frame")
-		wave.Size = UDim2.new(waveWidth, 2, 0, 20)
+		wave.Size = UDim2.new(waveWidth, 2, 0, 22)
 		wave.Position = UDim2.new(waveWidth * (i - 1), -1, 1, -10)
 		wave.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
 		wave.BorderSizePixel = 0
@@ -237,21 +234,45 @@ function GhostLib:CreateWindow()
 		if i == 2 or i == 4 then
 			wave.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 		end
+		table.insert(Tentacles, wave)
 	end
 
-	-- Put Ghost inside Text Frame coordinates to calculate collision easily
-	Ghost.Parent = TextSequenceFrame
-	Ghost.Position = UDim2.new(0, -150, 0.5, -55)
-
-	local introDuration = 3.2
-	local ghostTween = TweenService:Create(Ghost, TweenInfo.new(introDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+	local introDuration = 3.8
+	local ghostTween = TweenService:Create(Ghost, TweenInfo.new(introDuration, Enum.EasingStyle.SlowMo, Enum.EasingDirection.InOut), {
 		Position = UDim2.new(0, 650, 0.5, -55)
 	})
 	ghostTween:Play()
 
-	-- Track movement frame-by-frame to trigger interactive letter falls & color inversion
+	-- Dynamic squid-like propulsion animation loop
+	local animationTime = 0
 	local processingConnection
-	processingConnection = RunService.RenderStepped:Connect(function()
+	processingConnection = RunService.Heartbeat:Connect(function(deltaTime)
+		animationTime = animationTime + deltaTime
+		local cyclesPerSecond = 2.5
+		local cycle = (animationTime * cyclesPerSecond * math.pi * 2)
+
+		-- Biological body expansion and contractions (Squish/Stretch propulsion dynamics)
+		local baseWidth = 85
+		local baseHeight = 110
+		local widthModifier = math.sin(cycle) * 12
+		local heightModifier = -math.sin(cycle) * 10
+		
+		-- Only apply squish metrics if the forward motion is actively ongoing
+		if Ghost and Ghost:IsDescendantOf(game) then
+			Ghost.Size = UDim2.new(0, baseWidth + widthModifier, 0, baseHeight + heightModifier)
+			
+			-- Dynamic tentacle logic: pull forward then expand outward violently to simulate swimming physics
+			for idx, tentacle in ipairs(Tentacles) do
+				local offsetPhase = idx * 0.35
+				local waveSwing = math.cos(cycle + offsetPhase) * 25
+				local lengthSwing = 22 + (math.sin(cycle + offsetPhase) * 8)
+				
+				tentacle.Rotation = waveSwing
+				tentacle.Size = UDim2.new(waveWidth, 2, 0, lengthSwing)
+			end
+		end
+
+		-- Character Hit Tracking & Color Shift Dynamics
 		local ghostX = Ghost.AbsolutePosition.X + (Ghost.AbsoluteSize.X / 2)
 		for _, data in ipairs(LetterObjects) do
 			if not data.Hit then
@@ -259,9 +280,7 @@ function GhostLib:CreateWindow()
 				if ghostX >= letterCenterX then
 					data.Hit = true
 					
-					-- 360 Spin, Fall, Color shift to Black + White Neon Border
 					task.spawn(function()
-						-- Spin and drop animation sequence
 						local originalPos = data.Label.Position
 						local fallPos = originalPos + UDim2.new(0, 0, 0, 45)
 						
@@ -291,7 +310,6 @@ function GhostLib:CreateWindow()
 	task.delay(introDuration, function()
 		if processingConnection then processingConnection:Disconnect() end
 		
-		-- Smooth transition outward to open the main dashboard
 		local fadeOut = TweenService:Create(IntroContainer, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			BackgroundTransparency = 1
 		})
@@ -304,14 +322,13 @@ function GhostLib:CreateWindow()
 		fadeOut:Play()
 		fadeOut.Completed:Connect(function()
 			IntroContainer:Destroy()
-			MainFrame.Visible = true -- Open the Dark Dashboard UI interface
+			MainFrame.Visible = true 
 		end)
 	end)
 
 	-- =================================================================
 	-- LATERAL PANEL (Profile & Stats)
 	-- =================================================================
-	
 	local LateralFrame = Instance.new("Frame")
 	LateralFrame.Name = "LateralFrame"
 	LateralFrame.Size = UDim2.new(0, 220, 1, 0)
@@ -337,7 +354,6 @@ function GhostLib:CreateWindow()
 	Line.BorderSizePixel = 0
 	Line.Parent = LateralFrame
 
-	-- Avatar Thumbnail
 	local PlayerImage = Instance.new("ImageLabel")
 	PlayerImage.Name = "PlayerImage"
 	PlayerImage.Size = UDim2.new(0, 64, 0, 64)
@@ -359,7 +375,6 @@ function GhostLib:CreateWindow()
 	PlayerName.TextColor3 = Color3.fromRGB(220, 220, 220)
 	PlayerName.Parent = LateralFrame
 
-	-- Live Data Section
 	local InfoContainer = Instance.new("Frame")
 	InfoContainer.Size = UDim2.new(1, -24, 0, 110)
 	InfoContainer.Position = UDim2.new(0, 12, 0, 135)
@@ -409,7 +424,6 @@ function GhostLib:CreateWindow()
 		end
 	end)
 
-	-- Navigation Panel Scroll Area
 	local TabButtonsContainer = Instance.new("ScrollingFrame")
 	TabButtonsContainer.Size = UDim2.new(1, -16, 1, -270)
 	TabButtonsContainer.Position = UDim2.new(0, 8, 0, 255)
@@ -426,7 +440,6 @@ function GhostLib:CreateWindow()
 	-- =================================================================
 	-- WINDOW CONTAINER VIEWPORT
 	-- =================================================================
-	
 	local ContentFrame = Instance.new("Frame")
 	ContentFrame.Name = "ContentFrame"
 	ContentFrame.Size = UDim2.new(1, -220, 1, -40)
@@ -469,7 +482,6 @@ function GhostLib:CreateWindow()
 	-- =================================================================
 	-- MODULE API METHODS
 	-- =================================================================
-	
 	function GhostLib:CreateTab(tabName)
 		local TabButton = Instance.new("TextButton")
 		TabButton.Size = UDim2.new(1, 0, 0, 34)
@@ -644,6 +656,211 @@ function GhostLib:CreateWindow()
 			end)
 		end
 
+		function ElementCreator:CreateKeybind(name, default, callback)
+			local base, lbl = CreateElementBase(name, TabContent)
+			local currentBind = default
+
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(0, 85, 0, 26)
+			btn.Position = UDim2.new(1, -97, 0.5, -13)
+			btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+			btn.Font = Enum.Font.Montserrat
+			btn.Text = currentBind.Name
+			btn.TextColor3 = Color3.fromRGB(230, 230, 230)
+			btn.TextSize = 11
+			btn.Parent = base
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+			local bStroke = Instance.new("UIStroke", btn)
+			bStroke.Color = Color3.fromRGB(60, 60, 60)
+
+			local listening = false
+			btn.MouseButton1Click:Connect(function()
+				listening = true
+				btn.Text = "..."
+			end)
+
+			UserInputService.InputBegan:Connect(function(input, processed)
+				if listening and not processed then
+					if input.UserInputType == Enum.UserInputType.Keyboard then
+						listening = false
+						currentBind = input.KeyCode
+						btn.Text = currentBind.Name
+						callback(currentBind)
+					end
+				end
+			end)
+		end
+
+		function ElementCreator:CreateTextBox(name, placeholder, callback)
+			local base, lbl = CreateElementBase(name, TabContent)
+			
+			local box = Instance.new("TextBox")
+			box.Size = UDim2.new(0, 140, 0, 26)
+			box.Position = UDim2.new(1, -152, 0.5, -13)
+			box.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+			box.Text = ""
+			box.PlaceholderText = placeholder
+			box.PlaceholderColor3 = Color3.fromRGB(110, 110, 110)
+			box.Font = Enum.Font.Montserrat
+			box.TextSize = 11
+			box.TextColor3 = Color3.fromRGB(240, 240, 240)
+			box.Parent = base
+			Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+			local bStroke = Instance.new("UIStroke", box)
+			bStroke.Color = Color3.fromRGB(55, 55, 55)
+
+			box.FocusLost:Connect(function(enterPressed)
+				callback(box.Text, enterPressed)
+			end)
+		end
+
+		function ElementCreator:CreateDropdown(name, list, callback)
+			local base, lbl = CreateElementBase(name, TabContent, 42)
+			local expanded = false
+
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(0, 140, 0, 26)
+			btn.Position = UDim2.new(1, -152, 0.5, -13)
+			btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+			btn.Font = Enum.Font.Montserrat
+			btn.Text = "Select..."
+			btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+			btn.TextSize = 11
+			btn.Parent = base
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+			local bStroke = Instance.new("UIStroke", btn)
+			bStroke.Color = Color3.fromRGB(55, 55, 55)
+
+			local listFrame = Instance.new("Frame")
+			listFrame.Size = UDim2.new(0, 140, 0, 0)
+			listFrame.Position = UDim2.new(1, -152, 0, 37)
+			listFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+			listFrame.BorderSizePixel = 0
+			listFrame.Visible = false
+			listFrame.ZIndex = 20
+			listFrame.Parent = base
+			Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 4)
+			local lStroke = Instance.new("UIStroke", listFrame)
+			lStroke.Color = Color3.fromRGB(55, 55, 55)
+
+			local listLayout = Instance.new("UIListLayout")
+			listLayout.Parent = listFrame
+
+			for _, item in pairs(list) do
+				local itemBtn = Instance.new("TextButton")
+				itemBtn.Size = UDim2.new(1, 0, 0, 26)
+				itemBtn.BackgroundTransparency = 1
+				itemBtn.Text = tostring(item)
+				itemBtn.Font = Enum.Font.Montserrat
+				itemBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+				itemBtn.TextSize = 11
+				itemBtn.ZIndex = 21
+				itemBtn.Parent = listFrame
+
+				itemBtn.MouseButton1Click:Connect(function()
+					btn.Text = tostring(item)
+					expanded = false
+					listFrame.Visible = false
+					base.Size = UDim2.new(1, 0, 0, 42)
+					callback(item)
+				end)
+			end
+
+			btn.MouseButton1Click:Connect(function()
+				expanded = not expanded
+				listFrame.Visible = expanded
+				if expanded then
+					local totalHeight = #list * 26
+					listFrame.Size = UDim2.new(0, 140, 0, totalHeight)
+					base.Size = UDim2.new(1, 0, 0, 47 + totalHeight)
+				else
+					base.Size = UDim2.new(1, 0, 0, 42)
+				end
+			end)
+		end
+
+		function ElementCreator:CreateMultiDropdown(name, list, callback)
+			local base, lbl = CreateElementBase(name, TabContent, 42)
+			local expanded = false
+			local selectedItems = {}
+
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(0, 140, 0, 26)
+			btn.Position = UDim2.new(1, -152, 0.5, -13)
+			btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+			btn.Font = Enum.Font.Montserrat
+			btn.Text = "Multiple..."
+			btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+			btn.TextSize = 11
+			btn.Parent = base
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+			local bStroke = Instance.new("UIStroke", btn)
+			bStroke.Color = Color3.fromRGB(55, 55, 55)
+
+			local listFrame = Instance.new("Frame")
+			listFrame.Size = UDim2.new(0, 140, 0, 0)
+			listFrame.Position = UDim2.new(1, -152, 0, 37)
+			listFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+			listFrame.BorderSizePixel = 0
+			listFrame.Visible = false
+			listFrame.ZIndex = 20
+			listFrame.Parent = base
+			Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 4)
+			local lStroke = Instance.new("UIStroke", listFrame)
+			lStroke.Color = Color3.fromRGB(55, 55, 55)
+
+			local listLayout = Instance.new("UIListLayout")
+			listLayout.Parent = listFrame
+
+			for _, item in pairs(list) do
+				local itemBtn = Instance.new("TextButton")
+				itemBtn.Size = UDim2.new(1, 0, 0, 26)
+				itemBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+				itemBtn.BorderSizePixel = 0
+				itemBtn.Text = tostring(item)
+				itemBtn.Font = Enum.Font.Montserrat
+				itemBtn.TextColor3 = Color3.fromRGB(110, 110, 110)
+				itemBtn.TextSize = 11
+				itemBtn.ZIndex = 21
+				itemBtn.Parent = listFrame
+
+				itemBtn.MouseButton1Click:Connect(function()
+					if table.find(selectedItems, item) then
+						table.remove(selectedItems, table.find(selectedItems, item))
+						itemBtn.TextColor3 = Color3.fromRGB(110, 110, 110)
+					else
+						table.insert(selectedItems, item)
+						itemBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+					end
+					
+					if #selectedItems > 0 then
+						btn.Text = table.concat(selectedItems, ", ")
+					else
+						btn.Text = "Multiple..."
+					end
+					
+					if #btn.Text > 16 then
+						btn.Text = string.sub(btn.Text, 1, 13) .. "..."
+					end
+					
+					callback(selectedItems)
+				end)
+			end
+
+			btn.MouseButton1Click:Connect(function()
+				expanded = not expanded
+				listFrame.Visible = expanded
+				if expanded then
+					local totalHeight = #list * 26
+					listFrame.Size = UDim2.new(0, 140, 0, totalHeight)
+					base.Size = UDim2.new(1, 0, 0, 47 + totalHeight)
+				else
+					base.Size = UDim2.new(1, 0, 0, 42)
+				end
+			end)
+		end
+
+		-- FIXED: Resolved table initialization error by adding the missing return statement
 		return ElementCreator
 	end
 
