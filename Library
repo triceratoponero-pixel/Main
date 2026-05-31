@@ -789,7 +789,7 @@ function GhostLib:CreateWindow(options)
 			lbl.TextXAlignment = Enum.TextXAlignment.Left
 			lbl.FontFace = style == "header"
 				and Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.SemiBold)
-				or Enum.Font.Montserrat
+				or Font.new("rbxasset://fonts/families/Montserrat.json")
 			lbl.Parent = ScrollFrame
 			return lbl
 		end
