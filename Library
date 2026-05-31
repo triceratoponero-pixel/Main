@@ -91,6 +91,8 @@ local InfoPopover = nil
 
 local function showInfo(anchor, description)
 	if not description or description == "" then return end
+	
+	-- Create popover if it doesn't exist
 	if not InfoPopover then
 		InfoPopover = Instance.new("Frame")
 		InfoPopover.Name = "GhostInfoPopover"
@@ -98,7 +100,11 @@ local function showInfo(anchor, description)
 		InfoPopover.BorderSizePixel = 0
 		InfoPopover.ZIndex = 10000
 		InfoPopover.Visible = false
-		InfoPopover.Parent = ScreenGui
+		
+		-- Use ScreenGui if available, otherwise CoreGui
+		local parentGui = ScreenGui or game:GetService("CoreGui")
+		InfoPopover.Parent = parentGui
+		
 		RoundFrame(InfoPopover, 8)
 		Stroke(InfoPopover, T.Border)
 
@@ -106,28 +112,40 @@ local function showInfo(anchor, description)
 		padding.PaddingAll = UDim.new(0, 12)
 		padding.Parent = InfoPopover
 
-		local text = Instance.new("TextLabel")
-		text.Name = "Content"
-		text.BackgroundTransparency = 1
-		text.TextColor3 = T.TextSecondary
-		text.TextSize = 13
-		text.Font = Enum.Font.Montserrat
-		text.TextXAlignment = Enum.TextXAlignment.Left
-		text.TextYAlignment = Enum.TextYAlignment.Top
-		text.TextWrapped = true
-		text.Parent = InfoPopover
+		local textLabel = Instance.new("TextLabel")
+		textLabel.Name = "Content"
+		textLabel.BackgroundTransparency = 1
+		textLabel.TextColor3 = T.TextSecondary
+		textLabel.TextSize = 13
+		textLabel.Font = Enum.Font.Montserrat
+		textLabel.TextXAlignment = Enum.TextXAlignment.Left
+		textLabel.TextYAlignment = Enum.TextYAlignment.Top
+		textLabel.TextWrapped = true
+		textLabel.Text = ""
+		textLabel.Parent = InfoPopover
 	end
 
 	local content = InfoPopover:FindFirstChild("Content")
+	if not content then return end
+	
 	content.Text = description
-	InfoPopover.Size = UDim2.new(0, 280, 0, math.clamp(content.TextBounds.Y + 40, 60, 220))
+	
+	-- Auto size
+	local textHeight = content.TextBounds.Y + 40
+	InfoPopover.Size = UDim2.new(0, 280, 0, math.clamp(textHeight, 60, 220))
 
-	local absPos = anchor.AbsolutePosition
-	InfoPopover.Position = UDim2.new(0, absPos.X + 35, 0, absPos.Y - 10)
+	-- Position near the info button
+	if anchor and anchor.AbsolutePosition then
+		local absPos = anchor.AbsolutePosition
+		InfoPopover.Position = UDim2.new(0, absPos.X + 35, 0, absPos.Y - 10)
+	end
+	
 	InfoPopover.Visible = true
 
+	-- Click anywhere to close
 	task.delay(0.1, function()
-		local conn = UserInputService.InputBegan:Connect(function(input)
+		local conn
+		conn = UserInputService.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				InfoPopover.Visible = false
 				conn:Disconnect()
@@ -151,10 +169,16 @@ local function CreateInfoButton(parent, description)
 	RoundFrame(infoBtn, 999)
 	Stroke(infoBtn, Color3.fromRGB(70, 70, 70))
 
-	infoBtn.MouseEnter:Connect(function() Tween(infoBtn, C.TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(75,75,75)}):Play() end)
-	infoBtn.MouseLeave:Connect(function() Tween(infoBtn, C.TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(55,55,55)}):Play() end)
+	infoBtn.MouseEnter:Connect(function()
+		Tween(infoBtn, C.TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(75, 75, 75)}):Play()
+	end)
+	infoBtn.MouseLeave:Connect(function()
+		Tween(infoBtn, C.TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(55, 55, 55)}):Play()
+	end)
 
-	infoBtn.MouseButton1Click:Connect(function() showInfo(infoBtn, description) end)
+	infoBtn.MouseButton1Click:Connect(function()
+		showInfo(infoBtn, description)
+	end)
 end
 
 -- ─── MAIN LIBRARY ─────────────────────────────────────────────────────────────
