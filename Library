@@ -85,6 +85,78 @@ local function Stroke(parent, color, thickness)
 	return s
 end
 
+-- ─── INFO POPOVER & BUTTON ───────────────────────────────────────────────────
+
+local InfoPopover = nil
+
+local function showInfo(anchor, description)
+	if not description or description == "" then return end
+	if not InfoPopover then
+		InfoPopover = Instance.new("Frame")
+		InfoPopover.Name = "GhostInfoPopover"
+		InfoPopover.BackgroundColor3 = T.Surface
+		InfoPopover.BorderSizePixel = 0
+		InfoPopover.ZIndex = 10000
+		InfoPopover.Visible = false
+		InfoPopover.Parent = ScreenGui
+		RoundFrame(InfoPopover, 8)
+		Stroke(InfoPopover, T.Border)
+
+		local padding = Instance.new("UIPadding")
+		padding.PaddingAll = UDim.new(0, 12)
+		padding.Parent = InfoPopover
+
+		local text = Instance.new("TextLabel")
+		text.Name = "Content"
+		text.BackgroundTransparency = 1
+		text.TextColor3 = T.TextSecondary
+		text.TextSize = 13
+		text.Font = Enum.Font.Montserrat
+		text.TextXAlignment = Enum.TextXAlignment.Left
+		text.TextYAlignment = Enum.TextYAlignment.Top
+		text.TextWrapped = true
+		text.Parent = InfoPopover
+	end
+
+	local content = InfoPopover:FindFirstChild("Content")
+	content.Text = description
+	InfoPopover.Size = UDim2.new(0, 280, 0, math.clamp(content.TextBounds.Y + 40, 60, 220))
+
+	local absPos = anchor.AbsolutePosition
+	InfoPopover.Position = UDim2.new(0, absPos.X + 35, 0, absPos.Y - 10)
+	InfoPopover.Visible = true
+
+	task.delay(0.1, function()
+		local conn = UserInputService.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				InfoPopover.Visible = false
+				conn:Disconnect()
+			end
+		end)
+	end)
+end
+
+local function CreateInfoButton(parent, description)
+	if not description or description == "" then return end
+
+	local infoBtn = Instance.new("TextButton")
+	infoBtn.Size = UDim2.new(0, 22, 0, 22)
+	infoBtn.Position = UDim2.new(1, -34, 0.5, -11)
+	infoBtn.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+	infoBtn.Text = "i"
+	infoBtn.TextColor3 = Color3.fromRGB(170, 170, 170)
+	infoBtn.Font = Enum.Font.Montserrat
+	infoBtn.TextSize = 13
+	infoBtn.Parent = parent
+	RoundFrame(infoBtn, 999)
+	Stroke(infoBtn, Color3.fromRGB(70, 70, 70))
+
+	infoBtn.MouseEnter:Connect(function() Tween(infoBtn, C.TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(75,75,75)}):Play() end)
+	infoBtn.MouseLeave:Connect(function() Tween(infoBtn, C.TWEEN_FAST, {BackgroundColor3 = Color3.fromRGB(55,55,55)}):Play() end)
+
+	infoBtn.MouseButton1Click:Connect(function() showInfo(infoBtn, description) end)
+end
+
 -- ─── MAIN LIBRARY ─────────────────────────────────────────────────────────────
 
 local GhostLib = {}
@@ -635,7 +707,7 @@ function GhostLib:CreateWindow(options)
 
 	-- ── ELEMENT BASE FACTORY ─────────────────────────────────────────────────
 
-	local function CreateElementBase(name, parent, sizeY)
+	local function CreateElementBase(name, parent, sizeY, description)
 		local base = Instance.new("Frame")
 		base.Size = UDim2.new(1, 0, 0, sizeY or C.ELEM_HEIGHT)
 		base.BackgroundColor3 = T.Element
@@ -646,7 +718,7 @@ function GhostLib:CreateWindow(options)
 		Stroke(base, T.Border)
 
 		local lbl = Instance.new("TextLabel")
-		lbl.Size = UDim2.new(0.5, 0, 0, C.ELEM_HEIGHT)
+		lbl.Size = UDim2.new(1, -180, 0, C.ELEM_HEIGHT)
 		lbl.Position = UDim2.new(0, 16, 0, 0)
 		lbl.BackgroundTransparency = 1
 		lbl.Text = name
@@ -655,6 +727,8 @@ function GhostLib:CreateWindow(options)
 		lbl.TextColor3 = T.TextSecondary
 		lbl.TextXAlignment = Enum.TextXAlignment.Left
 		lbl.Parent = base
+
+		CreateInfoButton(base, description)
 
 		return base, lbl
 	end
@@ -851,10 +925,10 @@ function GhostLib:CreateWindow(options)
 		end
 
 		-- TOGGLE
-		function Tab:CreateToggle(name, default, callback)
+		function Tab:CreateToggle(name, default, callback, description)
 			assert(type(callback) == "function", "Toggle '" .. name .. "': callback must be a function")
 			local enabled = default == true
-			local base, lbl = CreateElementBase(name, ScrollFrame)
+			local base, lbl = CreateElementBase(name, ScrollFrame, nil, description)
 
 			local track = Instance.new("TextButton")
 			track.Size = UDim2.new(0, 44, 0, 22)
@@ -908,10 +982,11 @@ function GhostLib:CreateWindow(options)
 		end
 
 		-- BUTTON
-		function Tab:CreateButton(name, callback)
+		function Tab:CreateButton(name, callback, description)
 			assert(type(callback) == "function", "Button '" .. name .. "': callback must be a function")
-			local base, lbl = CreateElementBase(name, ScrollFrame)
-			lbl.Size = UDim2.new(1, -130, 1, 0)
+			local base, lbl = CreateElementBase(name, ScrollFrame, nil, description)
+			lbl.Size = UDim2.new(1, -170, 1, 0)
+
 
 			local btn = Instance.new("TextButton")
 			btn.Size = UDim2.new(0, 100, 0, 30)
@@ -949,13 +1024,13 @@ function GhostLib:CreateWindow(options)
 		end
 
 		-- SLIDER
-		function Tab:CreateSlider(name, min, max, default, callback)
+		function Tab:CreateSlider(name, min, max, default, callback, description)
 			assert(type(min) == "number" and type(max) == "number", "Slider '" .. name .. "': min/max must be numbers")
 			assert(min < max, "Slider '" .. name .. "': min must be less than max")
 			assert(type(callback) == "function", "Slider '" .. name .. "': callback must be a function")
 			default = math.clamp(default or min, min, max)
 
-			local base, lbl = CreateElementBase(name, ScrollFrame)
+			local base, lbl = CreateElementBase(name, ScrollFrame, nil, description)
 
 			local valLabel = Instance.new("TextLabel")
 			valLabel.Size = UDim2.new(0, 45, 1, 0)
@@ -1057,10 +1132,10 @@ function GhostLib:CreateWindow(options)
 		end
 
 		-- KEYBIND
-		function Tab:CreateKeybind(name, default, callback)
+		function Tab:CreateKeybind(name, default, callback, description)
 			assert(type(callback) == "function", "Keybind '" .. name .. "': callback must be a function")
 			local currentBind = default or Enum.KeyCode.RightControl
-			local base, lbl   = CreateElementBase(name, ScrollFrame)
+			local base, lbl = CreateElementBase(name, ScrollFrame, nil, description)
 			local listening   = false
 
 			local btn = Instance.new("TextButton")
@@ -1106,9 +1181,9 @@ function GhostLib:CreateWindow(options)
 		end
 
 		-- TEXTBOX
-		function Tab:CreateTextBox(name, placeholder, callback)
+		function Tab:CreateTextBox(name, placeholder, callback, description)
 			assert(type(callback) == "function", "TextBox '" .. name .. "': callback must be a function")
-			local base, lbl = CreateElementBase(name, ScrollFrame)
+			local base, lbl = CreateElementBase(name, ScrollFrame, nil, description)
 
 			local box = Instance.new("TextBox")
 			box.Size = UDim2.new(0, 150, 0, 28)
@@ -1142,11 +1217,11 @@ function GhostLib:CreateWindow(options)
 		end
 
 		-- DROPDOWN (single select)
-		function Tab:CreateDropdown(name, list, callback)
+		function Tab:CreateDropdown(name, list, callback, description)
 			assert(type(list) == "table" and #list > 0, "Dropdown '" .. name .. "': list must be a non-empty table")
 			assert(type(callback) == "function", "Dropdown '" .. name .. "': callback must be a function")
 
-			local base, lbl = CreateElementBase(name, ScrollFrame, C.ELEM_HEIGHT)
+			local base, lbl = CreateElementBase(name, ScrollFrame, C.ELEM_HEIGHT, description)
 			local expanded  = false
 			local selected  = nil
 
@@ -1240,18 +1315,18 @@ function GhostLib:CreateWindow(options)
 		end
 
 		-- MULTI-DROPDOWN
-		function Tab:CreateMultiDropdown(name, list, options, callback)
-			-- Normalise arguments
+		function Tab:CreateMultiDropdown(name, list, options, callback, description)
 			if type(options) == "function" then
 				callback = options
-				options  = {}
+				options = {}
 			end
 			options = options or {}
 			local closeOnSelect = options.CloseOnSelect == true
+
 			assert(type(list) == "table" and #list > 0, "MultiDropdown '" .. name .. "': list must be a non-empty table")
 			assert(type(callback) == "function", "MultiDropdown '" .. name .. "': callback must be a function")
 
-			local base, lbl = CreateElementBase(name, ScrollFrame, C.ELEM_HEIGHT)
+			local base, lbl = CreateElementBase(name, ScrollFrame, C.ELEM_HEIGHT, description)
 			local expanded  = false
 			local selected  = {}
 
@@ -1398,11 +1473,11 @@ function GhostLib:CreateWindow(options)
 		end
 
 		-- COLOR PICKER (lightweight: hue strip + brightness)
-		function Tab:CreateColorPicker(name, default, callback)
+		function Tab:CreateColorPicker(name, default, callback, description)
 			assert(type(callback) == "function", "ColorPicker '" .. name .. "': callback must be a function")
 			default = default or Color3.fromRGB(255, 255, 255)
 
-			local base, lbl = CreateElementBase(name, ScrollFrame, 46)
+			local base, lbl = CreateElementBase(name, ScrollFrame, 46, description)
 			local pickerOpen = false
 
 			local h, s, v = default:ToHSV()
