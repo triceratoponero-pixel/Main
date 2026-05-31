@@ -38,8 +38,7 @@ function GhostLib:CreateWindow()
 	Title.TextColor3 = Color3.fromRGB(0, 0, 0)
 	Title.TextSize = 120
 	Title.Font = Enum.Font.Unknown -- Forza l'uso se Montserrat non è precaricato, altrimenti usa GothamBlack
-	Title.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Black)
-	Title.ZIndex = 11
+	Title.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)	Title.ZIndex = 11
 	Title.Parent = IntroContainer
 
 	-- Il Fantasma (Creato con Frame e configurato per simulare il CSS)
