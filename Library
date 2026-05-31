@@ -808,7 +808,6 @@ function GhostLib:CreateWindow()
 			end)
 		end
 
-		-- DROPDOWN (Now Uses ScrollingFrame)
 		function ElementCreator:CreateDropdown(name, list, callback)
 			local base, lbl = CreateElementBase(name, ContainerScrolling, 46)
 			local expanded = false
@@ -826,7 +825,6 @@ function GhostLib:CreateWindow()
 			local bStroke = Instance.new("UIStroke", btn)
 			bStroke.Color = Color3.fromRGB(60, 60, 60)
 
-			-- Fixed to a ScrollingFrame
 			local listFrame = Instance.new("ScrollingFrame")
 			listFrame.Size = UDim2.new(0, 150, 0, 0)
 			listFrame.Position = UDim2.new(1, -166, 0, 42)
@@ -876,7 +874,7 @@ function GhostLib:CreateWindow()
 				expanded = not expanded
 				if expanded then
 					listFrame.Visible = true
-					local displayHeight = math.min(#list * 28, 112) -- Max 4 items showing
+					local displayHeight = math.min(#list * 28, 112)
 					TweenService:Create(listFrame, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, 150, 0, displayHeight)}):Play()
 					TweenService:Create(base, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 52 + displayHeight)}):Play()
 				else
@@ -890,7 +888,6 @@ function GhostLib:CreateWindow()
 			end)
 		end
 
-		-- MULTI DROPDOWN (Now Uses ScrollingFrame + Optional auto-close parameter)
 		function ElementCreator:CreateMultiDropdown(name, list, arg3, arg4)
 			local closeOnSelect = false
 			local callback = arg4
@@ -918,6 +915,21 @@ function GhostLib:CreateWindow()
 			local bStroke = Instance.new("UIStroke", btn)
 			bStroke.Color = Color3.fromRGB(60, 60, 60)
 
+			local collapseBtn = Instance.new("ImageButton")
+			collapseBtn.Size = UDim2.new(0, 18, 0, 18)
+			collapseBtn.BackgroundTransparency = 1
+			collapseBtn.Image = "rbxassetid://6031094678" 
+			collapseBtn.ImageColor3 = Color3.fromRGB(200, 200, 200)
+			collapseBtn.ImageTransparency = 1
+			collapseBtn.Visible = false
+			collapseBtn.Parent = base
+
+			local function UpdateCollapseIconPos()
+				collapseBtn.Position = UDim2.new(0, 16 + lbl.TextBounds.X + 8, 0, 14)
+			end
+			lbl:GetPropertyChangedSignal("TextBounds"):Connect(UpdateCollapseIconPos)
+			UpdateCollapseIconPos()
+
 			local listFrame = Instance.new("ScrollingFrame")
 			listFrame.Size = UDim2.new(0, 150, 0, 0)
 			listFrame.Position = UDim2.new(1, -166, 0, 42)
@@ -936,6 +948,38 @@ function GhostLib:CreateWindow()
 
 			local listLayout = Instance.new("UIListLayout")
 			listLayout.Parent = listFrame
+
+			local function CloseDropdown()
+				expanded = false
+				local collapseTween = TweenService:Create(listFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 150, 0, 0)})
+				collapseTween:Play()
+				TweenService:Create(base, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(1, 0, 0, 46)}):Play()
+				
+				local fadeIcon = TweenService:Create(collapseBtn, TweenInfo.new(0.15), {ImageTransparency = 1})
+				fadeIcon:Play()
+
+				collapseTween.Completed:Connect(function()
+					if not expanded then 
+						listFrame.Visible = false 
+						collapseBtn.Visible = false
+					end
+				end)
+			end
+
+			local function OpenDropdown()
+				expanded = true
+				listFrame.Visible = true
+				collapseBtn.Visible = true
+				TweenService:Create(collapseBtn, TweenInfo.new(0.2), {ImageTransparency = 0}):Play()
+				
+				local displayHeight = math.min(#list * 28, 112)
+				TweenService:Create(listFrame, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, 150, 0, displayHeight)}):Play()
+				TweenService:Create(base, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 52 + displayHeight)}):Play()
+			end
+
+			collapseBtn.MouseButton1Click:Connect(function()
+				if expanded then CloseDropdown() end
+			end)
 
 			for _, item in pairs(list) do
 				local itemBtn = Instance.new("TextButton")
@@ -970,33 +1014,17 @@ function GhostLib:CreateWindow()
 					
 					callback(selectedItems)
 
-					-- Auto-Close Option implementation
 					if closeOnSelect then
-						expanded = false
-						local collapseTween = TweenService:Create(listFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 150, 0, 0)})
-						collapseTween:Play()
-						TweenService:Create(base, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(1, 0, 0, 46)}):Play()
-						collapseTween.Completed:Connect(function()
-							listFrame.Visible = false
-						end)
+						CloseDropdown()
 					end
 				end)
 			end
 
 			btn.MouseButton1Click:Connect(function()
-				expanded = not expanded
 				if expanded then
-					listFrame.Visible = true
-					local displayHeight = math.min(#list * 28, 112)
-					TweenService:Create(listFrame, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, 150, 0, displayHeight)}):Play()
-					TweenService:Create(base, TweenInfo.new(0.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 52 + displayHeight)}):Play()
+					CloseDropdown()
 				else
-					local collapseTween = TweenService:Create(listFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 150, 0, 0)})
-					collapseTween:Play()
-					TweenService:Create(base, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(1, 0, 0, 46)}):Play()
-					collapseTween.Completed:Connect(function()
-						listFrame.Visible = false
-					end)
+					OpenDropdown()
 				end
 			end)
 		end
