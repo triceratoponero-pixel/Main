@@ -13,6 +13,20 @@ local HttpService        = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 
+-- ─── LUA 5.3+ POLYFILLS ───────────────────────────────────────────────────────
+
+if not math.clamp then
+	function math.clamp(x, min, max)
+		return math.max(math.min(x, max), min)
+	end
+end
+
+if not math.round then
+	function math.round(x)
+		return math.floor(x + 0.5)
+	end
+end
+
 -- ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 local C = {
@@ -139,7 +153,7 @@ function GhostLib:CreateWindow(options)
 			or style == "warning" and T.Warning
 			or T.Accent
 
-		local toast = Instance.new("Frame")
+		local toast = Instance.new("CanvasGroup")
 		toast.Size = UDim2.new(1, 0, 0, 48)
 		toast.BackgroundColor3 = T.Toast
 		toast.BorderSizePixel = 0
@@ -669,7 +683,7 @@ function GhostLib:CreateWindow(options)
 
 	-- Ping/players — stored so we can disconnect on cleanup
 	Track(RunService.Heartbeat:Connect(function()
-		PingLabel.Text    = "Ping: " .. math.round(LocalPlayer:GetNetworkPing() * 1000) .. " ms"
+		PingLabel.Text    = "Ping: " .. math.floor(LocalPlayer:GetNetworkPing() * 1000 + 0.5) .. " ms"
 		local max         = Players.MaxPlayers > 0 and Players.MaxPlayers or 1
 		PlayersLabel.Text = "Players: " .. #Players:GetPlayers() .. " / " .. max
 	end))
@@ -1100,7 +1114,7 @@ function GhostLib:CreateWindow(options)
 				local barWidth = track.AbsoluteSize.X
 				local mouseX   = UserInputService:GetMouseLocation().X
 				local pct      = math.clamp((mouseX - barLeft) / barWidth, 0, 1)
-				local value    = math.round(min + pct * (max - min))
+				local value    = math.floor(min + pct * (max - min) + 0.5)
 				pct = (value - min) / (max - min)     -- snap to integer grid
 
 				Tween(fill,   TweenInfo.new(0.05), {Size     = UDim2.new(pct, 0, 1, 0)}):Play()
@@ -1140,7 +1154,7 @@ function GhostLib:CreateWindow(options)
 
 			local api = {}
 			function api:Set(val)
-				val = math.clamp(math.round(val), min, max)
+				val = math.max(math.min(math.floor(val + 0.5), max), min)
 				local pct = (val - min) / (max - min)
 				fill.Size   = UDim2.new(pct, 0, 1, 0)
 				handle.Position = UDim2.new(pct, 0, 0.5, 0)
