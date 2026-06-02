@@ -1,19 +1,65 @@
 --[[
-	GhostLib — Premium Dark UI Library for Roblox
-	Refactored: Connection cleanup, theme system, new elements,
-	fixed slider/keybind/dropdown bugs, consistent API, input validation.
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     GhostLib — Premium Dark UI Library                      ║
+║                         Version 2.0 — Refactored                            ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  OVERVIEW                                                                   ║
+║  GhostLib is a fully-featured, animated UI library for Roblox games.        ║
+║  It provides a dark-themed window system with tabs, scrollable content,     ║
+║  a sidebar with player info, and a rich set of interactive elements.        ║
+║                                                                             ║
+║  QUICK START                                                                ║
+║    local GhostLib = require(path.to.GhostLib)                               ║
+║    local win = GhostLib:CreateWindow({                                      ║
+║        Title      = "My Script",   -- topbar title                         ║
+║        Theme      = "Dark",        -- "Dark" (only theme for now)           ║
+║        SkipIntro  = false,         -- skip the ghost intro animation        ║
+║        IntroDuration = 4.0,        -- how many seconds the intro runs       ║
+║        ToggleKey  = Enum.KeyCode.RightControl  -- hide/show keybind         ║
+║    })                                                                       ║
+║                                                                             ║
+║    local tab = win:CreateTab("Combat", "⚔")                                ║
+║    tab:CreateToggle("God Mode", false, function(val) print(val) end)        ║
+║    tab:CreateSlider("Speed", 0, 100, 16, function(val) print(val) end)      ║
+║    win:Notify("Loaded!", "success", 3)                                      ║
+║                                                                             ║
+║  ELEMENT API OVERVIEW                                                       ║
+║    CreateLabel(text, style)          -- static text, style: normal/header/muted
+║    CreateDivider(sectionTitle)       -- horizontal rule with optional label ║
+║    CreateParagraph(title, body)      -- expandable text block               ║
+║    CreateToggle(name, default, cb)   -- boolean toggle switch               ║
+║    CreateButton(name, cb)            -- clickable action button             ║
+║    CreateSlider(name,min,max,def,cb) -- draggable numeric slider            ║
+║    CreateKeybind(name, default, cb)  -- keyboard bind picker                ║
+║    CreateTextBox(name, hint, cb)     -- text input field                    ║
+║    CreateDropdown(name, list, cb)    -- single-select dropdown              ║
+║    CreateMultiDropdown(name,list,opts,cb) -- multi-select dropdown          ║
+║    CreateColorPicker(name, default, cb)  -- hue + brightness picker         ║
+║    CreateConfigSystem(profileKey)    -- save/load profile placeholder       ║
+║                                                                             ║
+║  WINDOW API                                                                 ║
+║    win:Notify(msg, style, duration)  -- style: info/success/warning/error   ║
+║    win:Destroy()                     -- removes the UI and all connections  ║
+║    win:SetTheme(themeName)           -- runtime theme switch (placeholder)  ║
+║                                                                             ║
+║  TOGGLE KEYBIND                                                             ║
+║    Pass ToggleKey in CreateWindow options to show/hide the window.          ║
+║    Defaults to RightControl. Press the key while not typing to toggle.      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 --]]
+
+-- ─── SERVICES ─────────────────────────────────────────────────────────────────
 
 local Players            = game:GetService("Players")
 local TweenService       = game:GetService("TweenService")
 local RunService         = game:GetService("RunService")
 local MarketPlaceService = game:GetService("MarketplaceService")
 local UserInputService   = game:GetService("UserInputService")
-local HttpService        = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 
 -- ─── LUA 5.3+ POLYFILLS ───────────────────────────────────────────────────────
+-- Roblox's Lua environment may be missing these standard math helpers.
 
 if not math.clamp then
 	function math.clamp(x, min, max)
@@ -28,14 +74,19 @@ if not math.round then
 end
 
 -- ─── CONSTANTS ────────────────────────────────────────────────────────────────
+-- All layout measurements and shared TweenInfo objects live here so changing
+-- one number propagates everywhere automatically.
 
 local C = {
+	-- Layout
 	WINDOW_WIDTH    = 780,
 	WINDOW_HEIGHT   = 500,
 	SIDEBAR_WIDTH   = 220,
 	TOPBAR_HEIGHT   = 42,
 	CORNER_RADIUS   = 12,
 	ELEM_HEIGHT     = 46,
+
+	-- Tween presets — used consistently across the whole library
 	TWEEN_FAST      = TweenInfo.new(0.15, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out),
 	TWEEN_MED       = TweenInfo.new(0.25, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out),
 	TWEEN_BACK      = TweenInfo.new(0.3,  Enum.EasingStyle.Back,  Enum.EasingDirection.Out),
@@ -43,47 +94,63 @@ local C = {
 }
 
 -- ─── THEME SYSTEM ─────────────────────────────────────────────────────────────
+-- All colors are centralised here.  To add a new theme, copy the Dark table,
+-- rename the key, and adjust the Color3 values.  Call win:SetTheme("MyTheme")
+-- at runtime to switch (full re-application is the caller's responsibility for
+-- now; the stub is in place).
 
 local Themes = {
 	Dark = {
+		-- Structural surfaces
 		Background    = Color3.fromRGB(20,  20,  20),
 		Surface       = Color3.fromRGB(25,  25,  25),
 		Element       = Color3.fromRGB(30,  30,  30),
 		ElementHover  = Color3.fromRGB(38,  38,  38),
 		Border        = Color3.fromRGB(40,  40,  40),
 		BorderFocus   = Color3.fromRGB(200, 200, 200),
+		-- Input fields
 		Input         = Color3.fromRGB(45,  45,  45),
 		InputBorder   = Color3.fromRGB(60,  60,  60),
 		Scrollbar     = Color3.fromRGB(60,  60,  60),
+		-- Text hierarchy
 		TextPrimary   = Color3.fromRGB(240, 240, 240),
 		TextSecondary = Color3.fromRGB(200, 200, 200),
 		TextMuted     = Color3.fromRGB(150, 150, 150),
 		TextDisabled  = Color3.fromRGB(90,  90,  90),
+		-- Accent pair (primary / inverse)
 		Accent        = Color3.fromRGB(255, 255, 255),
 		AccentDark    = Color3.fromRGB(20,  20,  20),
+		-- Toggle states
 		ToggleOff     = Color3.fromRGB(50,  50,  50),
 		ToggleOn      = Color3.fromRGB(255, 255, 255),
 		CircleOff     = Color3.fromRGB(200, 200, 200),
 		CircleOn      = Color3.fromRGB(20,  20,  20),
+		-- Status colours
 		Success       = Color3.fromRGB(80,  200, 120),
 		Error         = Color3.fromRGB(255, 80,  80),
 		Warning       = Color3.fromRGB(255, 180, 50),
+		-- Window chrome
 		CloseBtn      = Color3.fromRGB(255, 60,  60),
 		CloseBtnText  = Color3.fromRGB(255, 100, 100),
+		-- Dropdowns
 		Dropdown      = Color3.fromRGB(35,  35,  35),
 		DropdownItem  = Color3.fromRGB(35,  35,  35),
 		DropdownSel   = Color3.fromRGB(50,  50,  50),
 		DropdownSelTx = Color3.fromRGB(240, 240, 240),
+		-- Toast / notification
 		Toast         = Color3.fromRGB(32,  32,  32),
 	},
 }
 
--- ─── HELPERS ──────────────────────────────────────────────────────────────────
+-- ─── INTERNAL HELPERS ─────────────────────────────────────────────────────────
+-- Small utilities used throughout the library.
 
+--- Shorthand for TweenService:Create to reduce verbosity.
 local function Tween(inst, info, props)
 	return TweenService:Create(inst, info, props)
 end
 
+--- Attach a UICorner to a frame.  radius defaults to C.CORNER_RADIUS.
 local function RoundFrame(parent, radius)
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, radius or C.CORNER_RADIUS)
@@ -91,6 +158,7 @@ local function RoundFrame(parent, radius)
 	return c
 end
 
+--- Attach a UIStroke to a frame.
 local function Stroke(parent, color, thickness)
 	local s = Instance.new("UIStroke")
 	s.Color = color or Color3.fromRGB(45, 45, 45)
@@ -99,25 +167,63 @@ local function Stroke(parent, color, thickness)
 	return s
 end
 
+--- Clamp a Color3's HSV saturation and value to [0,1] to ensure it is valid.
+--- Returns a corrected Color3.
+local function ClampColor(color)
+	local h, s, v = color:ToHSV()
+	s = math.clamp(s, 0, 1)
+	v = math.clamp(v, 0, 1)
+	return Color3.fromHSV(h, s, v)
+end
+
+--- Safely disconnect all connections in a list.
+local function DisconnectAll(list)
+	for _, conn in ipairs(list) do
+		pcall(function() conn:Disconnect() end)
+	end
+end
+
 -- ─── MAIN LIBRARY ─────────────────────────────────────────────────────────────
 
 local GhostLib = {}
 GhostLib.__index = GhostLib
 
+--- Create a new UI window.
+---
+--- @param options table
+---   .Title        string              Window title shown in the topbar.
+---   .Theme        string              Theme name ("Dark").  Defaults to "Dark".
+---   .SkipIntro    boolean             Skip the ghost intro animation.
+---   .IntroDuration number             Duration of the intro in seconds (default 4.0).
+---   .ToggleKey    Enum.KeyCode        Key that hides / shows the window (default RightControl).
+--- @return Window API table
 function GhostLib:CreateWindow(options)
 	options = options or {}
-	local themeName   = options.Theme   or "Dark"
-	local skipIntro   = options.SkipIntro or false
-	local introDur    = options.IntroDuration or 4.0
-	local T           = Themes[themeName] or Themes.Dark
 
-	-- Master connection tracker for cleanup
+	-- ── Resolve options with safe defaults ──────────────────────────────────
+	local themeName   = type(options.Theme)        == "string"  and options.Theme        or "Dark"
+	local skipIntro   = options.SkipIntro == true
+	local introDur    = type(options.IntroDuration) == "number" and options.IntroDuration or 4.0
+	local windowTitle = type(options.Title)         == "string" and options.Title         or "GHOSTWARE"
+	local toggleKey   = options.ToggleKey or Enum.KeyCode.RightControl
+
+	-- Resolve theme, fall back to Dark if the name is unknown
+	local T = Themes[themeName]
+	if not T then
+		warn("GhostLib: Unknown theme '" .. tostring(themeName) .. "', falling back to Dark.")
+		T = Themes.Dark
+	end
+
+	-- ── Connection tracker ───────────────────────────────────────────────────
+	-- Every RBXScriptConnection is stored here so we can cleanly disconnect
+	-- everything when the window is destroyed.
 	local _connections = {}
 	local function Track(conn)
 		table.insert(_connections, conn)
 		return conn
 	end
 
+	-- ── ScreenGui root ───────────────────────────────────────────────────────
 	local ScreenGui = Instance.new("ScreenGui")
 	ScreenGui.Name = "GhostUI_PremiumDark"
 	ScreenGui.ResetOnSpawn = false
@@ -125,7 +231,12 @@ function GhostLib:CreateWindow(options)
 	ScreenGui.IgnoreGuiInset = true
 	ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-	-- ── NOTIFICATION / TOAST SYSTEM ─────────────────────────────────────────
+	-- ═══════════════════════════════════════════════════════════════════════
+	--  NOTIFICATION / TOAST SYSTEM
+	--  Toasts stack at the bottom-right corner of the screen.  Each toast
+	--  fades in, waits for `duration` seconds, then fades out and destroys
+	--  itself.  Supported styles: "info" | "success" | "error" | "warning"
+	-- ═══════════════════════════════════════════════════════════════════════
 
 	local ToastContainer = Instance.new("Frame")
 	ToastContainer.Name = "ToastContainer"
@@ -144,9 +255,16 @@ function GhostLib:CreateWindow(options)
 	ToastPadding.PaddingBottom = UDim.new(0, 12)
 	ToastPadding.Parent = ToastContainer
 
+	--- Show a toast notification.
+	---
+	--- @param msg      string   The message to display.
+	--- @param style    string?  "info" | "success" | "error" | "warning"
+	--- @param duration number?  Seconds before the toast fades (default 3).
 	local function Notify(msg, style, duration)
-		style    = style    or "info"   -- "info" | "success" | "error" | "warning"
-		duration = duration or 3
+		-- Input validation / defaults
+		if type(msg) ~= "string" then msg = tostring(msg) end
+		style    = (style == "success" or style == "error" or style == "warning") and style or "info"
+		duration = type(duration) == "number" and math.max(0.5, duration) or 3
 
 		local accent = style == "success" and T.Success
 			or style == "error"   and T.Error
@@ -163,6 +281,7 @@ function GhostLib:CreateWindow(options)
 		RoundFrame(toast, 8)
 		Stroke(toast, T.Border)
 
+		-- Left accent bar indicates style type visually
 		local bar = Instance.new("Frame")
 		bar.Size = UDim2.new(0, 3, 1, -16)
 		bar.Position = UDim2.new(0, 8, 0.5, 0)
@@ -186,17 +305,27 @@ function GhostLib:CreateWindow(options)
 		lbl.ZIndex = 1001
 		lbl.Parent = toast
 
+		-- Animate in
 		toast.GroupTransparency = 1
 		Tween(toast, C.TWEEN_MED, {GroupTransparency = 0}):Play()
 
+		-- Auto-dismiss
 		task.delay(duration, function()
+			if not toast or not toast.Parent then return end
 			local out = Tween(toast, C.TWEEN_FAST, {GroupTransparency = 1})
 			out:Play()
-			out.Completed:Connect(function() toast:Destroy() end)
+			out.Completed:Once(function() pcall(function() toast:Destroy() end) end)
 		end)
 	end
 
-	-- ── INTRO ANIMATION ─────────────────────────────────────────────────────
+	-- ═══════════════════════════════════════════════════════════════════════
+	--  INTRO ANIMATION
+	--  A ghost character sweeps left-to-right across the "GHOST" title.
+	--  When the ghost's centre X overlaps each letter, that letter:
+	--    1. Slams down, flips, turns black with a white UIStroke outline
+	--    2. Bounces back up with elastic easing, returns to white
+	--  After introDur seconds the scene fades out and onComplete() is called.
+	-- ═══════════════════════════════════════════════════════════════════════
 
 	local function ShowMainFrame(MainFrame)
 		MainFrame.Visible = true
@@ -219,6 +348,7 @@ function GhostLib:CreateWindow(options)
 		IntroContainer.ZIndex = 100
 		IntroContainer.Parent = IntroGui
 
+		-- Centred frame that holds the animated letters
 		local TextSequenceFrame = Instance.new("Frame")
 		TextSequenceFrame.Size = UDim2.new(0, 600, 0, 150)
 		TextSequenceFrame.Position = UDim2.new(0.5, -300, 0.5, -75)
@@ -226,6 +356,7 @@ function GhostLib:CreateWindow(options)
 		TextSequenceFrame.ZIndex = 101
 		TextSequenceFrame.Parent = IntroContainer
 
+		-- Build one LetterObject per character in "GHOST"
 		local Characters = {"G","H","O","S","T"}
 		local LetterObjects = {}
 		local charWidth = 120
@@ -246,9 +377,13 @@ function GhostLib:CreateWindow(options)
 			TextLabel.TextSize = 120
 			TextLabel.TextColor3 = Color3.fromRGB(245, 245, 245)
 			TextLabel.ZIndex = 103
-			TextLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Bold)
+			TextLabel.FontFace = Font.new(
+				"rbxasset://fonts/families/Montserrat.json",
+				Enum.FontWeight.Bold
+			)
 			TextLabel.Parent = LetterContainer
 
+			-- UIStroke used for the white-outline effect when the ghost hits the letter
 			local GlowStroke = Instance.new("UIStroke")
 			GlowStroke.Thickness = 0
 			GlowStroke.Color = Color3.fromRGB(245, 245, 245)
@@ -257,12 +392,13 @@ function GhostLib:CreateWindow(options)
 
 			table.insert(LetterObjects, {
 				Container = LetterContainer,
-				Label = TextLabel,
-				Stroke = GlowStroke,
-				Hit = false
+				Label     = TextLabel,
+				Stroke    = GlowStroke,
+				Hit       = false,
 			})
 		end
 
+		-- ── Ghost character ──────────────────────────────────────────────────
 		local Ghost = Instance.new("CanvasGroup")
 		Ghost.Name = "Ghost"
 		Ghost.Size = UDim2.new(0, 85, 0, 110)
@@ -279,8 +415,7 @@ function GhostLib:CreateWindow(options)
 		Eye1.BorderSizePixel = 0
 		Eye1.Parent = Ghost
 		RoundFrame(Eye1, 999)
-		
-		-- Eye shine effect
+
 		local eyeShine1 = Instance.new("Frame")
 		eyeShine1.Size = UDim2.new(0, 3, 0, 3)
 		eyeShine1.Position = UDim2.new(0.4, -1, 0.25, -1)
@@ -292,7 +427,7 @@ function GhostLib:CreateWindow(options)
 		local Eye2 = Eye1:Clone()
 		Eye2.Position = UDim2.new(0.68, -4, 0.38, -6)
 		Eye2.Parent = Ghost
-		
+
 		local eyeShine2 = eyeShine1:Clone()
 		eyeShine2.Parent = Eye2
 
@@ -304,6 +439,7 @@ function GhostLib:CreateWindow(options)
 		Mouth.Parent = Ghost
 		RoundFrame(Mouth, 999)
 
+		-- Wavy tentacles at the bottom of the ghost
 		local Tentacles = {}
 		local waveWidth = 1 / 5
 		for i = 1, 5 do
@@ -312,79 +448,94 @@ function GhostLib:CreateWindow(options)
 			wave.Position = UDim2.new(waveWidth * (i - 1), -1, 1, -10)
 			wave.BackgroundColor3 = (i == 2 or i == 4)
 				and Color3.fromRGB(15, 15, 15)
-				or Color3.fromRGB(245, 245, 245)
+				or  Color3.fromRGB(245, 245, 245)
 			wave.BorderSizePixel = 0
 			wave.Parent = Ghost
 			RoundFrame(wave, 999)
 			table.insert(Tentacles, wave)
 		end
 
+		-- Ghost enters with a pop (scale up) before its linear sweep
+		Ghost.Size = UDim2.new(0, 30, 0, 40)
+		Ghost.GroupTransparency = 1
+		Tween(Ghost, TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
+			Size              = UDim2.new(0, 85, 0, 110),
+			GroupTransparency = 0,
+		}):Play()
+
+		-- Primary sweep across the title
 		local ghostTween = Tween(Ghost,
 			TweenInfo.new(introDur, Enum.EasingStyle.Linear),
 			{Position = UDim2.new(0, 660, 0.5, -55)}
 		)
-		
-		-- Start with ghost bouncing in
-		Ghost.Size = UDim2.new(0, 30, 0, 40)
-		Ghost.GroupTransparency = 1
-		Tween(Ghost, TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
-			Size = UDim2.new(0, 85, 0, 110),
-			GroupTransparency = 0
-		}):Play()
-		
 		ghostTween:Play()
 
+		-- ── Per-frame animation loop ─────────────────────────────────────────
 		local runTime = 0
 		local animConn
+
 		animConn = RunService.Heartbeat:Connect(function(dt)
 			runTime += dt
-			local phase = runTime * 3.2 * math.pi * 2
-			local floatPhase = runTime * 1.5 * math.pi * 2  -- Slower float motion
-			local bobPhase = runTime * 2.8 * math.pi * 2    -- Bobbing motion
-			local blinkPhase = runTime * 4.2              -- Eye blink timing
+			local phase     = runTime * 3.2  * math.pi * 2
+			local floatPh   = runTime * 1.5  * math.pi * 2
+			local bobPh     = runTime * 2.8  * math.pi * 2
+			local blinkPh   = runTime * 4.2
 
 			if Ghost and Ghost:IsDescendantOf(game) then
-				-- Multi-layer scaling for more dynamic feel
-				local scaleX = 85 + math.sin(phase) * 14 + math.sin(floatPhase * 0.5) * 8
-				local scaleY = 110 - math.sin(phase) * 12 + math.cos(bobPhase) * 10
+				-- Body squash & stretch
+				local scaleX = 85 + math.sin(phase) * 14 + math.sin(floatPh * 0.5) * 8
+				local scaleY = 110 - math.sin(phase) * 12 + math.cos(bobPh) * 10
 				Ghost.Size = UDim2.new(0, scaleX, 0, scaleY)
-				
-				-- Add slight rotation wobble
+
+				-- Slight wobble rotation
 				Ghost.Rotation = math.sin(phase * 0.7) * 3
-				
-				-- Enhanced tentacle waves with more variation
+
+				-- Tentacle waves
 				for idx, wave in ipairs(Tentacles) do
 					local v = idx * 0.4
-					local waveAmount = math.sin(phase + v) * 28 + math.cos(phase * 1.5 + v) * 12
-					wave.Rotation = waveAmount
-					local waveHeight = 22 + math.sin(phase + v) * 9 + math.cos(floatPhase + v * 0.5) * 7
-					wave.Size = UDim2.new(waveWidth, 2 + math.abs(math.sin(phase + v)), 0, math.max(15, waveHeight))
+					local rot    = math.sin(phase + v) * 28 + math.cos(phase * 1.5 + v) * 12
+					local height = 22 + math.sin(phase + v) * 9 + math.cos(floatPh + v * 0.5) * 7
+					wave.Rotation = rot
+					wave.Size = UDim2.new(
+						waveWidth,
+						2 + math.abs(math.sin(phase + v)),
+						0,
+						math.max(15, height)
+					)
 				end
-				
-				-- Eye animations - blink effect
-				local blinkAmount = math.max(0, math.sin(blinkPhase * 2) ^ 2)
-				Eye1.Size = UDim2.new(0, 9, 0, math.max(1, 13 * (1 - blinkAmount)))
-				Eye2.Size = UDim2.new(0, 9, 0, math.max(1, 13 * (1 - blinkAmount)))
-				
-				-- Eye shine glow pulse
-				local shinePulse = (math.sin(phase * 2) + 1) * 0.5
-				eyeShine1.Size = UDim2.new(0, 3 + shinePulse * 2, 0, 3 + shinePulse * 2)
-				eyeShine2.Size = UDim2.new(0, 3 + shinePulse * 2, 0, 3 + shinePulse * 2)
-				eyeShine1.BackgroundTransparency = 0.3 - shinePulse * 0.2
-				eyeShine2.BackgroundTransparency = 0.3 - shinePulse * 0.2
-				
-				-- Eye movement/looking around
-				local eyeOffsetX = math.sin(phase * 0.6) * 2
-				local eyeOffsetY = math.cos(floatPhase * 0.5) * 2
-				Eye1.Position = UDim2.new(0.32 + eyeOffsetX * 0.02, -4, 0.38 + eyeOffsetY * 0.02, -6)
-				Eye2.Position = UDim2.new(0.68 + eyeOffsetX * 0.02, -4, 0.38 + eyeOffsetY * 0.02, -6)
-				
-				-- Mouth animation - opening/closing
-				local mouthOpen = (math.sin(blinkPhase * 1.5) + 1) * 0.5
+
+				-- Eye blink
+				local blinkAmt = math.max(0, math.sin(blinkPh * 2) ^ 2)
+				Eye1.Size = UDim2.new(0, 9, 0, math.max(1, 13 * (1 - blinkAmt)))
+				Eye2.Size = UDim2.new(0, 9, 0, math.max(1, 13 * (1 - blinkAmt)))
+
+				-- Eye-shine pulse
+				local shine = (math.sin(phase * 2) + 1) * 0.5
+				eyeShine1.Size = UDim2.new(0, 3 + shine * 2, 0, 3 + shine * 2)
+				eyeShine2.Size = UDim2.new(0, 3 + shine * 2, 0, 3 + shine * 2)
+				eyeShine1.BackgroundTransparency = 0.3 - shine * 0.2
+				eyeShine2.BackgroundTransparency = 0.3 - shine * 0.2
+
+				-- Eye drift
+				local ex = math.sin(phase * 0.6) * 2
+				local ey = math.cos(floatPh * 0.5) * 2
+				Eye1.Position = UDim2.new(0.32 + ex * 0.02, -4, 0.38 + ey * 0.02, -6)
+				Eye2.Position = UDim2.new(0.68 + ex * 0.02, -4, 0.38 + ey * 0.02, -6)
+
+				-- Mouth open/close
+				local mouthOpen = (math.sin(blinkPh * 1.5) + 1) * 0.5
 				Mouth.Size = UDim2.new(0, 11, 0, 6 + mouthOpen * 5)
 				Mouth.Position = UDim2.new(0.5, -5, 0.58 + mouthOpen * 0.04, -5)
 			end
 
+			-- ── Letter hit detection ─────────────────────────────────────────
+			-- When the ghost's centre X reaches a letter's centre X, we trigger
+			-- a three-phase animation:
+			--   Phase 1 — slam: letter moves down, flips 180°, turns BLACK with a
+			--             WHITE UIStroke outline (the "ghost hits it" moment).
+			--   Phase 2 — bounce: letter springs back with elastic easing,
+			--             completes the rotation to 360° and returns WHITE.
+			--   Phase 3 — stroke fades out.
 			local gx = Ghost.AbsolutePosition.X + Ghost.AbsoluteSize.X / 2
 			for _, data in ipairs(LetterObjects) do
 				if not data.Hit then
@@ -393,78 +544,86 @@ function GhostLib:CreateWindow(options)
 						data.Hit = true
 						task.spawn(function()
 							local orig = data.Label.Position
-							-- More dramatic impact animation
-							Tween(data.Label, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-								Position = orig + UDim2.new(0, -15, 0, 65),
-								Rotation = 180,
-								TextColor3 = Color3.fromRGB(15,15,15),
-								TextScaled = true
+
+							-- Phase 1: slam down — letter goes BLACK with white outline
+							local slam = Tween(data.Label,
+								TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+								{
+									Position   = orig + UDim2.new(0, -15, 0, 65),
+									Rotation   = 180,
+									TextColor3 = Color3.fromRGB(0, 0, 0),   -- black text
+								}
+							)
+							slam:Play()
+
+							-- White outline appears on slam
+							Tween(data.Stroke, TweenInfo.new(0.1), {
+								Thickness    = 5,
+								Transparency = 0,
+								Color        = Color3.fromRGB(245, 245, 245),
 							}):Play()
-							Tween(data.Stroke, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-								Thickness = 4, Transparency = 0
-							}):Play()
-							
-							-- Hold for a moment
+
+							-- Phase 2: bounce back — text returns WHITE, stroke stays briefly
 							task.wait(0.2)
-							
-							-- Bounce back with more energy
-							Tween(data.Label, TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
-								Position = orig,
-								Rotation = 360,
-								TextColor3 = Color3.fromRGB(245, 245, 245)
-							}):Play()
-							
-							-- Stroke fade out
+							Tween(data.Label,
+								TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out),
+								{
+									Position   = orig,
+									Rotation   = 360,
+									TextColor3 = Color3.fromRGB(245, 245, 245),
+								}
+							):Play()
+
+							-- Phase 3: fade stroke out
 							task.wait(0.15)
-							Tween(data.Stroke, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-								Thickness = 0, Transparency = 1
-							}):Play()
+							Tween(data.Stroke,
+								TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+								{Thickness = 0, Transparency = 1}
+							):Play()
 						end)
 					end
 				end
 			end
 		end)
 
+		-- ── Outro ────────────────────────────────────────────────────────────
 		task.delay(introDur, function()
 			animConn:Disconnect()
-			
-			-- Dynamic fade out of letters with staggered timing
+
+			-- Staggered letter fade-out with rotation
 			for i, data in ipairs(LetterObjects) do
 				task.delay(i * 0.05, function()
 					Tween(data.Label,  TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 						TextTransparency = 1,
-						Rotation = data.Label.Rotation + 180
+						Rotation         = data.Label.Rotation + 180,
 					}):Play()
-					Tween(data.Stroke, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-						Transparency = 1
-					}):Play()
+					Tween(data.Stroke, TweenInfo.new(0.25), {Transparency = 1}):Play()
 				end)
 			end
-			
-			-- Ghost fade with scale down
+
+			-- Ghost shrinks and fades
 			Tween(Ghost, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
 				GroupTransparency = 1,
-				Size = UDim2.new(0, 40, 0, 50)
+				Size              = UDim2.new(0, 40, 0, 50),
 			}):Play()
-			
-			-- Background fade with slight pulse before fade
-			Tween(IntroContainer, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundTransparency = 0.3
-			}):Play()
-			
+
+			-- Background fades out then calls onComplete
 			task.wait(0.3)
-			local fade = Tween(IntroContainer, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-				BackgroundTransparency = 1
-			})
+			local fade = Tween(IntroContainer,
+				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{BackgroundTransparency = 1}
+			)
 			fade:Play()
-			fade.Completed:Connect(function()
-				IntroGui:Destroy()
+			fade.Completed:Once(function()
+				pcall(function() IntroGui:Destroy() end)
 				onComplete()
 			end)
 		end)
 	end
 
-	-- ── MAIN FRAME ──────────────────────────────────────────────────────────
+	-- ═══════════════════════════════════════════════════════════════════════
+	--  MAIN FRAME
+	-- ═══════════════════════════════════════════════════════════════════════
 
 	local MainFrame = Instance.new("CanvasGroup")
 	MainFrame.Name = "MainFrame"
@@ -486,6 +645,7 @@ function GhostLib:CreateWindow(options)
 	TopBar.Parent = MainFrame
 	RoundFrame(TopBar, C.CORNER_RADIUS)
 
+	-- Thin separator between topbar and content
 	local TopBarLine = Instance.new("Frame")
 	TopBarLine.Size = UDim2.new(1, 0, 0, 1)
 	TopBarLine.Position = UDim2.new(0, 0, 1, -1)
@@ -497,7 +657,7 @@ function GhostLib:CreateWindow(options)
 	WindowTitle.Size = UDim2.new(0, 200, 1, 0)
 	WindowTitle.Position = UDim2.new(0, 18, 0, 0)
 	WindowTitle.BackgroundTransparency = 1
-	WindowTitle.Text = "GHOSTWARE"
+	WindowTitle.Text = windowTitle
 	WindowTitle.Font = Enum.Font.Montserrat
 	WindowTitle.TextSize = 14
 	WindowTitle.TextColor3 = T.TextPrimary
@@ -505,7 +665,8 @@ function GhostLib:CreateWindow(options)
 	WindowTitle.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Bold)
 	WindowTitle.Parent = TopBar
 
-	-- Window Controls
+	-- ── WINDOW CONTROLS (close + minimize) ──────────────────────────────────
+
 	local WindowControls = Instance.new("Frame")
 	WindowControls.Size = UDim2.new(0, 90, 0, 26)
 	WindowControls.Position = UDim2.new(1, -98, 0.5, -13)
@@ -538,11 +699,13 @@ function GhostLib:CreateWindow(options)
 	RoundFrame(MinimizeBtn, 6)
 
 	-- ── DRAGGING (smooth lerp) ───────────────────────────────────────────────
+	-- targetPos is updated instantly on mouse-move; RenderStepped lerps toward
+	-- it for a buttery smooth feel without raw position assignment.
 
-	local dragging    = false
-	local dragStart   = nil
-	local startPos    = nil
-	local targetPos   = MainFrame.Position
+	local dragging  = false
+	local dragStart = nil
+	local startPos  = nil
+	local targetPos = MainFrame.Position
 
 	Track(TopBar.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -565,8 +728,8 @@ function GhostLib:CreateWindow(options)
 			or input.UserInputType == Enum.UserInputType.Touch) and dragging then
 			local d = input.Position - dragStart
 			targetPos = UDim2.new(
-				startPos.X.Scale, startPos.X.Offset + d.X,
-				startPos.Y.Scale, startPos.Y.Offset + d.Y
+				startPos.X.Scale,  startPos.X.Offset + d.X,
+				startPos.Y.Scale,  startPos.Y.Offset + d.Y
 			)
 		end
 	end))
@@ -577,27 +740,21 @@ function GhostLib:CreateWindow(options)
 		end
 	end))
 
-	-- ── CLOSE / MINIMIZE ────────────────────────────────────────────────────
-
-	local IsMinimized = false
-	local NormalSize  = MainFrame.Size
+	-- ── CLOSE ────────────────────────────────────────────────────────────────
 
 	CloseBtn.MouseButton1Click:Connect(function()
-		local t = Tween(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			Size = UDim2.new(0, C.WINDOW_WIDTH, 0, 0),
-			GroupTransparency = 1
-		})
+		local t = Tween(MainFrame,
+			TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+			{Size = UDim2.new(0, C.WINDOW_WIDTH, 0, 0), GroupTransparency = 1}
+		)
 		t:Play()
-		t.Completed:Connect(function()
-			-- Disconnect all tracked connections
-			for _, conn in ipairs(_connections) do
-				pcall(function() conn:Disconnect() end)
-			end
-			ScreenGui:Destroy()
+		t.Completed:Once(function()
+			DisconnectAll(_connections)
+			pcall(function() ScreenGui:Destroy() end)
 		end)
 	end)
 
-	-- ── SIDEBAR ─────────────────────────────────────────────────────────────
+	-- ── SIDEBAR ──────────────────────────────────────────────────────────────
 
 	local LateralFrame = Instance.new("Frame")
 	LateralFrame.Size = UDim2.new(0, C.SIDEBAR_WIDTH, 1, -C.TOPBAR_HEIGHT)
@@ -607,7 +764,7 @@ function GhostLib:CreateWindow(options)
 	LateralFrame.Parent = MainFrame
 	RoundFrame(LateralFrame, C.CORNER_RADIUS)
 
-	-- Patch right corners flat so sidebar adjoins content area
+	-- Patch right corners flat so the sidebar flush-joins the content area
 	local JointPatch = Instance.new("Frame")
 	JointPatch.Size = UDim2.new(0, 20, 0, 20)
 	JointPatch.Position = UDim2.new(1, -20, 0, 0)
@@ -622,16 +779,20 @@ function GhostLib:CreateWindow(options)
 	SplitLine.BorderSizePixel = 0
 	SplitLine.Parent = LateralFrame
 
-	-- Player avatar
+	-- Player avatar thumbnail
 	local PlayerImage = Instance.new("ImageLabel")
 	PlayerImage.Size = UDim2.new(0, 64, 0, 64)
 	PlayerImage.Position = UDim2.new(0.5, -32, 0, 24)
 	PlayerImage.BackgroundColor3 = T.Element
-	PlayerImage.Image = Players:GetUserThumbnailAsync(
-		LocalPlayer.UserId,
-		Enum.ThumbnailType.HeadShot,
-		Enum.ThumbnailSize.Size100x100
-	)
+	-- pcall so we fail gracefully if the API is throttled
+	local ok, thumb = pcall(function()
+		return Players:GetUserThumbnailAsync(
+			LocalPlayer.UserId,
+			Enum.ThumbnailType.HeadShot,
+			Enum.ThumbnailSize.Size100x100
+		)
+	end)
+	PlayerImage.Image = ok and thumb or ""
 	PlayerImage.Parent = LateralFrame
 	RoundFrame(PlayerImage, 999)
 	Stroke(PlayerImage, T.Border)
@@ -646,12 +807,13 @@ function GhostLib:CreateWindow(options)
 	PlayerName.TextColor3 = T.TextSecondary
 	PlayerName.Parent = LateralFrame
 
-	-- Info rows
+	-- Game / ping / player-count info rows
 	local InfoContainer = Instance.new("Frame")
 	InfoContainer.Size = UDim2.new(1, -24, 0, 100)
 	InfoContainer.Position = UDim2.new(0, 12, 0, 130)
 	InfoContainer.BackgroundTransparency = 1
 	InfoContainer.Parent = LateralFrame
+
 	local UIListInfo = Instance.new("UIListLayout")
 	UIListInfo.Padding = UDim.new(0, 6)
 	UIListInfo.SortOrder = Enum.SortOrder.LayoutOrder
@@ -670,25 +832,26 @@ function GhostLib:CreateWindow(options)
 		return l
 	end
 
-	local GameNameLabel  = MakeInfoLabel()
-	local PingLabel      = MakeInfoLabel()
-	local PlayersLabel   = MakeInfoLabel()
+	local GameNameLabel = MakeInfoLabel()
+	local PingLabel     = MakeInfoLabel()
+	local PlayersLabel  = MakeInfoLabel()
 
+	-- Fetch game name asynchronously so the UI doesn't block
 	task.spawn(function()
-		local ok, info = pcall(function()
+		local ok2, info = pcall(function()
 			return MarketPlaceService:GetProductInfo(game.PlaceId)
 		end)
-		GameNameLabel.Text = "Game: " .. (ok and info and info.Name or "Workspace")
+		GameNameLabel.Text = "Game: " .. (ok2 and info and info.Name or "Unknown")
 	end)
 
-	-- Ping/players — stored so we can disconnect on cleanup
+	-- Update ping and player count every frame
 	Track(RunService.Heartbeat:Connect(function()
 		PingLabel.Text    = "Ping: " .. math.floor(LocalPlayer:GetNetworkPing() * 1000 + 0.5) .. " ms"
-		local max         = Players.MaxPlayers > 0 and Players.MaxPlayers or 1
-		PlayersLabel.Text = "Players: " .. #Players:GetPlayers() .. " / " .. max
+		local maxP        = Players.MaxPlayers > 0 and Players.MaxPlayers or 1
+		PlayersLabel.Text = "Players: " .. #Players:GetPlayers() .. " / " .. maxP
 	end))
 
-	-- Tab buttons scrolling container
+	-- Scrollable container for tab buttons
 	local TabButtonsContainer = Instance.new("ScrollingFrame")
 	TabButtonsContainer.Size = UDim2.new(1, -16, 1, -252)
 	TabButtonsContainer.Position = UDim2.new(0, 8, 0, 244)
@@ -696,14 +859,16 @@ function GhostLib:CreateWindow(options)
 	TabButtonsContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 	TabButtonsContainer.ScrollBarThickness = 0
 	TabButtonsContainer.Parent = LateralFrame
+
 	local TabListLayout = Instance.new("UIListLayout")
 	TabListLayout.Padding = UDim.new(0, 6)
 	TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	TabListLayout.Parent = TabButtonsContainer
 
-	-- Auto-resize tab button container canvas
+	-- Keep the canvas height in sync with the number of tab buttons
 	Track(TabListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		TabButtonsContainer.CanvasSize = UDim2.new(0, 0, 0, TabListLayout.AbsoluteContentSize.Y)
+		TabButtonsContainer.CanvasSize =
+			UDim2.new(0, 0, 0, TabListLayout.AbsoluteContentSize.Y)
 	end))
 
 	-- ── CONTENT AREA ────────────────────────────────────────────────────────
@@ -714,7 +879,11 @@ function GhostLib:CreateWindow(options)
 	ContentFrame.BackgroundTransparency = 1
 	ContentFrame.Parent = MainFrame
 
-	-- Minimize
+	-- ── MINIMIZE ────────────────────────────────────────────────────────────
+
+	local IsMinimized = false
+	local NormalSize  = MainFrame.Size
+
 	MinimizeBtn.MouseButton1Click:Connect(function()
 		IsMinimized = not IsMinimized
 		if IsMinimized then
@@ -727,7 +896,7 @@ function GhostLib:CreateWindow(options)
 		else
 			local t = Tween(MainFrame, C.TWEEN_BACK, {Size = NormalSize})
 			t:Play()
-			t.Completed:Connect(function()
+			t.Completed:Once(function()
 				ContentFrame.Visible = true
 				LateralFrame.Visible = true
 			end)
@@ -735,13 +904,50 @@ function GhostLib:CreateWindow(options)
 		end
 	end)
 
+	-- ── GLOBAL TOGGLE KEYBIND ────────────────────────────────────────────────
+	-- Pressing toggleKey while no TextBox is focused hides or shows the window.
+	-- The ToggleKey label is shown in the topbar for discoverability.
+
+	local isWindowVisible = true
+
+	-- Small keybind hint label in the top bar
+	local KeybindHint = Instance.new("TextLabel")
+	KeybindHint.Size = UDim2.new(0, 120, 1, 0)
+	KeybindHint.Position = UDim2.new(0.5, -60, 0, 0)
+	KeybindHint.BackgroundTransparency = 1
+	KeybindHint.Text = "[" .. toggleKey.Name .. "] Toggle"
+	KeybindHint.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
+	KeybindHint.TextSize = 11
+	KeybindHint.TextColor3 = T.TextMuted
+	KeybindHint.Parent = TopBar
+
+	Track(UserInputService.InputBegan:Connect(function(input, processed)
+		if processed then return end
+		if input.UserInputType == Enum.UserInputType.Keyboard
+			and input.KeyCode == toggleKey then
+			isWindowVisible = not isWindowVisible
+			if isWindowVisible then
+				MainFrame.Visible = true
+				Tween(MainFrame, C.TWEEN_MED, {GroupTransparency = 0}):Play()
+			else
+				local t = Tween(MainFrame, C.TWEEN_FAST, {GroupTransparency = 1})
+				t:Play()
+				t.Completed:Once(function()
+					if not isWindowVisible then MainFrame.Visible = false end
+				end)
+			end
+		end
+	end))
+
 	local TabsFolder = Instance.new("Folder")
 	TabsFolder.Name = "Tabs"
 	TabsFolder.Parent = ContentFrame
 
 	local isFirstTab = true
 
-	-- ── ELEMENT BASE FACTORY ─────────────────────────────────────────────────
+	-- ── SHARED ELEMENT BASE FACTORY ─────────────────────────────────────────
+	-- All element types start with a rounded frame + left-aligned name label.
+	-- Returns (base, nameLabel) for the caller to add controls onto.
 
 	local function CreateElementBase(name, parent, sizeY)
 		local base = Instance.new("Frame")
@@ -767,28 +973,64 @@ function GhostLib:CreateWindow(options)
 		return base, lbl
 	end
 
-	-- ── TAB CREATION ─────────────────────────────────────────────────────────
+	-- ═══════════════════════════════════════════════════════════════════════
+	--  WINDOW API
+	-- ═══════════════════════════════════════════════════════════════════════
 
 	local Window = {}
 
+	--- Show a toast notification.
+	--- @param msg      string
+	--- @param style    string?  "info" | "success" | "error" | "warning"
+	--- @param duration number?
 	function Window:Notify(msg, style, duration)
 		Notify(msg, style, duration)
 	end
 
+	--- Destroy the window and disconnect all connections.
 	function Window:Destroy()
-		for _, conn in ipairs(_connections) do
-			pcall(function() conn:Disconnect() end)
-		end
-		ScreenGui:Destroy()
+		DisconnectAll(_connections)
+		pcall(function() ScreenGui:Destroy() end)
 	end
 
+	--- Switch the active theme at runtime.
+	--- Full re-application of colour to existing instances is not currently
+	--- implemented; this updates T so future elements use the new theme.
+	--- @param newThemeName string
 	function Window:SetTheme(newThemeName)
-		-- Placeholder for runtime theme switching
-		-- Full re-application would require re-theming all instances
-		T = Themes[newThemeName] or T
+		if Themes[newThemeName] then
+			T = Themes[newThemeName]
+		else
+			warn("GhostLib:SetTheme — unknown theme '" .. tostring(newThemeName) .. "'")
+		end
 	end
 
+	--- Update the global toggle key at runtime.
+	--- @param newKey Enum.KeyCode
+	function Window:SetToggleKey(newKey)
+		if typeof(newKey) == "EnumItem" then
+			toggleKey = newKey
+			KeybindHint.Text = "[" .. toggleKey.Name .. "] Toggle"
+		else
+			warn("GhostLib:SetToggleKey — expected Enum.KeyCode, got " .. typeof(newKey))
+		end
+	end
+
+	-- ═══════════════════════════════════════════════════════════════════════
+	--  TAB CREATION
+	--  Each tab gets a button in the sidebar and a CanvasGroup in the content
+	--  area.  Only one tab is visible at a time; switching fades the old one
+	--  out before fading the new one in.
+	-- ═══════════════════════════════════════════════════════════════════════
+
+	--- Create a new tab.
+	--- @param tabName string   Label shown on the sidebar button.
+	--- @param icon    string?  Optional emoji/icon prefix for the button label.
+	--- @return Tab API table
 	function Window:CreateTab(tabName, icon)
+		assert(type(tabName) == "string" and #tabName > 0,
+			"CreateTab: tabName must be a non-empty string")
+
 		local TabButton = Instance.new("TextButton")
 		TabButton.Size = UDim2.new(1, 0, 0, 36)
 		TabButton.BackgroundColor3 = T.Surface
@@ -799,6 +1041,7 @@ function GhostLib:CreateWindow(options)
 		TabButton.Parent = TabButtonsContainer
 		RoundFrame(TabButton, 6)
 
+		-- Active indicator — a small vertical bar on the left edge
 		local TabIndicator = Instance.new("Frame")
 		TabIndicator.Size = UDim2.new(0, 3, 0, 0)
 		TabIndicator.Position = UDim2.new(0, 0, 0.5, 0)
@@ -808,6 +1051,7 @@ function GhostLib:CreateWindow(options)
 		TabIndicator.Parent = TabButton
 		RoundFrame(TabIndicator, 999)
 
+		-- Scrollable content canvas for this tab
 		local TabContent = Instance.new("CanvasGroup")
 		TabContent.Size = UDim2.new(1, -32, 1, -32)
 		TabContent.Position = UDim2.new(0, 16, 0, 16)
@@ -832,10 +1076,11 @@ function GhostLib:CreateWindow(options)
 		ContentLayout.Parent = ScrollFrame
 
 		Track(ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-			ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 15)
+			ScrollFrame.CanvasSize =
+				UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 15)
 		end))
 
-		-- First tab auto-selected
+		-- Auto-select the first tab created
 		if isFirstTab then
 			TabContent.Visible = true
 			TabButton.BackgroundColor3 = T.ElementHover
@@ -845,23 +1090,25 @@ function GhostLib:CreateWindow(options)
 		end
 
 		local function SelectThisTab()
-			-- Fade out other tabs
+			-- Fade out every other visible tab
 			for _, child in pairs(TabsFolder:GetChildren()) do
 				if child:IsA("CanvasGroup") and child.Visible and child ~= TabContent then
 					local out = Tween(child, C.TWEEN_FAST, {GroupTransparency = 1})
 					out:Play()
-					out.Completed:Connect(function() child.Visible = false end)
+					out.Completed:Once(function() child.Visible = false end)
 				end
 			end
-			-- Deactivate other buttons
+			-- Deactivate all sidebar buttons
 			for _, btn in pairs(TabButtonsContainer:GetChildren()) do
 				if btn:IsA("TextButton") then
 					Tween(btn, C.TWEEN_FAST, {
 						BackgroundColor3 = T.Surface,
-						TextColor3 = T.TextMuted
+						TextColor3       = T.TextMuted,
 					}):Play()
 					local ind = btn:FindFirstChildWhichIsA("Frame")
-					if ind then Tween(ind, C.TWEEN_FAST, {Size = UDim2.new(0, 3, 0, 0)}):Play() end
+					if ind then
+						Tween(ind, C.TWEEN_FAST, {Size = UDim2.new(0, 3, 0, 0)}):Play()
+					end
 				end
 			end
 			-- Show this tab
@@ -870,25 +1117,33 @@ function GhostLib:CreateWindow(options)
 			Tween(TabContent, C.TWEEN_MED, {GroupTransparency = 0}):Play()
 			Tween(TabButton, C.TWEEN_FAST, {
 				BackgroundColor3 = T.ElementHover,
-				TextColor3 = T.TextPrimary
+				TextColor3       = T.TextPrimary,
 			}):Play()
 			Tween(TabIndicator, C.TWEEN_FAST, {Size = UDim2.new(0, 3, 0, 18)}):Play()
 		end
 
 		TabButton.MouseButton1Click:Connect(SelectThisTab)
 
-		-- ── ELEMENT CREATORS ─────────────────────────────────────────────────
+		-- ═══════════════════════════════════════════════════════════════════
+		--  ELEMENT FACTORIES — all return an API table with Get/Set methods
+		-- ═══════════════════════════════════════════════════════════════════
 
 		local Tab = {}
 
-		-- LABEL / STATIC TEXT
+		-- ── LABEL ──────────────────────────────────────────────────────────
+		--- Static text element.
+		--- @param text  string
+		--- @param style string?  "normal" | "header" | "muted"
 		function Tab:CreateLabel(text, style)
-			style = style or "normal"   -- "normal" | "header" | "muted"
+			assert(type(text) == "string", "CreateLabel: text must be a string")
+			style = (style == "header" or style == "muted") and style or "normal"
+
 			local size  = style == "header" and 14 or 12
 			local color = style == "muted"  and T.TextMuted or T.TextSecondary
+			local height = style == "header" and 32 or 24
 
 			local lbl = Instance.new("TextLabel")
-			lbl.Size = UDim2.new(1, 0, 0, style == "header" and 32 or 24)
+			lbl.Size = UDim2.new(1, 0, 0, height)
 			lbl.BackgroundTransparency = 1
 			lbl.Text = text
 			lbl.TextSize = size
@@ -896,12 +1151,18 @@ function GhostLib:CreateWindow(options)
 			lbl.TextXAlignment = Enum.TextXAlignment.Left
 			lbl.FontFace = style == "header"
 				and Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.SemiBold)
-				or Font.new("rbxasset://fonts/families/Montserrat.json")
+				or  Font.new("rbxasset://fonts/families/Montserrat.json")
 			lbl.Parent = ScrollFrame
-			return lbl
+
+			local api = {}
+			function api:Set(val) lbl.Text = tostring(val) end
+			function api:Get()   return lbl.Text end
+			return api
 		end
 
-		-- SECTION DIVIDER
+		-- ── DIVIDER ────────────────────────────────────────────────────────
+		--- Horizontal rule with an optional inline section title.
+		--- @param sectionTitle string?
 		function Tab:CreateDivider(sectionTitle)
 			local holder = Instance.new("Frame")
 			holder.Size = UDim2.new(1, 0, 0, 24)
@@ -937,12 +1198,17 @@ function GhostLib:CreateWindow(options)
 			end
 		end
 
-		-- PARAGRAPH
+		-- ── PARAGRAPH ──────────────────────────────────────────────────────
+		--- Title + wrapped body text block.
+		--- @param title string
+		--- @param body  string
 		function Tab:CreateParagraph(title, body)
+			assert(type(title) == "string", "CreateParagraph: title must be a string")
+			assert(type(body)  == "string", "CreateParagraph: body must be a string")
 			local totalHeight = 60 + math.ceil(#body / 55) * 16
-			local base, lbl = CreateElementBase(title, ScrollFrame, totalHeight)
+			local base, lbl   = CreateElementBase(title, ScrollFrame, totalHeight)
 			lbl.Position = UDim2.new(0, 16, 0, 8)
-			lbl.Size = UDim2.new(1, -32, 0, 20)
+			lbl.Size     = UDim2.new(1, -32, 0, 20)
 
 			local bodyLbl = Instance.new("TextLabel")
 			bodyLbl.Size = UDim2.new(1, -32, 0, totalHeight - 36)
@@ -957,9 +1223,15 @@ function GhostLib:CreateWindow(options)
 			bodyLbl.Parent = base
 		end
 
-		-- TOGGLE
+		-- ── TOGGLE ─────────────────────────────────────────────────────────
+		--- Boolean toggle switch.
+		--- @param name     string
+		--- @param default  boolean
+		--- @param callback function(enabled: boolean)
+		--- @return {Set:function, Get:function}
 		function Tab:CreateToggle(name, default, callback)
-			assert(type(callback) == "function", "Toggle '" .. name .. "': callback must be a function")
+			assert(type(name)     == "string",   "CreateToggle: name must be a string")
+			assert(type(callback) == "function", "CreateToggle '" .. name .. "': callback must be a function")
 			local enabled = default == true
 			local base, lbl = CreateElementBase(name, ScrollFrame)
 
@@ -978,7 +1250,6 @@ function GhostLib:CreateWindow(options)
 			circle.Parent = track
 			RoundFrame(circle, 999)
 
-			-- Hover feedback
 			track.MouseEnter:Connect(function()
 				Tween(base, C.TWEEN_FAST, {BackgroundColor3 = T.ElementHover}):Play()
 			end)
@@ -989,34 +1260,42 @@ function GhostLib:CreateWindow(options)
 			track.MouseButton1Click:Connect(function()
 				enabled = not enabled
 				Tween(circle, C.TWEEN_BACK, {
-					Position = enabled and UDim2.new(1,-20,0.5,-8) or UDim2.new(0,4,0.5,-8),
-					BackgroundColor3 = enabled and T.CircleOn or T.CircleOff
+					Position         = enabled and UDim2.new(1,-20,0.5,-8) or UDim2.new(0,4,0.5,-8),
+					BackgroundColor3 = enabled and T.CircleOn or T.CircleOff,
 				}):Play()
 				Tween(track, C.TWEEN_FAST, {
-					BackgroundColor3 = enabled and T.ToggleOn or T.ToggleOff
+					BackgroundColor3 = enabled and T.ToggleOn or T.ToggleOff,
 				}):Play()
-				-- Scale press feedback
+				-- Tactile press squish
 				Tween(track, TweenInfo.new(0.06), {Size = UDim2.new(0, 40, 0, 20)}):Play()
 				task.delay(0.06, function()
 					Tween(track, C.TWEEN_BACK, {Size = UDim2.new(0, 44, 0, 22)}):Play()
 				end)
-				callback(enabled)
+				-- Safely call callback and report errors without crashing the library
+				local ok2, err = pcall(callback, enabled)
+				if not ok2 then
+					warn("GhostLib Toggle '" .. name .. "' callback error: " .. tostring(err))
+				end
 			end)
 
 			local api = {}
 			function api:Set(val)
 				enabled = val == true
-				circle.Position = enabled and UDim2.new(1,-20,0.5,-8) or UDim2.new(0,4,0.5,-8)
-				circle.BackgroundColor3 = enabled and T.CircleOn or T.CircleOff
-				track.BackgroundColor3 = enabled and T.ToggleOn or T.ToggleOff
+				circle.Position         = enabled and UDim2.new(1,-20,0.5,-8) or UDim2.new(0,4,0.5,-8)
+				circle.BackgroundColor3 = enabled and T.CircleOn  or T.CircleOff
+				track.BackgroundColor3  = enabled and T.ToggleOn  or T.ToggleOff
 			end
 			function api:Get() return enabled end
 			return api
 		end
 
-		-- BUTTON
+		-- ── BUTTON ─────────────────────────────────────────────────────────
+		--- Action button element.
+		--- @param name     string
+		--- @param callback function()
 		function Tab:CreateButton(name, callback)
-			assert(type(callback) == "function", "Button '" .. name .. "': callback must be a function")
+			assert(type(name)     == "string",   "CreateButton: name must be a string")
+			assert(type(callback) == "function", "CreateButton '" .. name .. "': callback must be a function")
 			local base, lbl = CreateElementBase(name, ScrollFrame)
 			lbl.Size = UDim2.new(1, -130, 1, 0)
 
@@ -1039,28 +1318,39 @@ function GhostLib:CreateWindow(options)
 			end)
 
 			btn.MouseButton1Click:Connect(function()
-				-- Press animation
 				local press = Tween(btn, TweenInfo.new(0.08), {
-					Size = UDim2.new(0, 92, 0, 26),
-					Position = UDim2.new(1,-112,0.5,-13)
+					Size     = UDim2.new(0, 92, 0, 26),
+					Position = UDim2.new(1, -112, 0.5, -13),
 				})
 				press:Play()
-				press.Completed:Connect(function()
+				press.Completed:Once(function()
 					Tween(btn, C.TWEEN_BACK, {
-						Size = UDim2.new(0,100,0,30),
-						Position = UDim2.new(1,-116,0.5,-15)
+						Size     = UDim2.new(0, 100, 0, 30),
+						Position = UDim2.new(1, -116, 0.5, -15),
 					}):Play()
 				end)
-				callback()
+				local ok2, err = pcall(callback)
+				if not ok2 then
+					warn("GhostLib Button '" .. name .. "' callback error: " .. tostring(err))
+				end
 			end)
 		end
 
-		-- SLIDER
+		-- ── SLIDER ─────────────────────────────────────────────────────────
+		--- Integer-snapping draggable slider.
+		--- @param name     string
+		--- @param min      number   Minimum value (must be < max).
+		--- @param max      number   Maximum value.
+		--- @param default  number   Initial value (clamped to [min,max]).
+		--- @param callback function(value: number)
+		--- @return {Set:function}
 		function Tab:CreateSlider(name, min, max, default, callback)
-			assert(type(min) == "number" and type(max) == "number", "Slider '" .. name .. "': min/max must be numbers")
-			assert(min < max, "Slider '" .. name .. "': min must be less than max")
-			assert(type(callback) == "function", "Slider '" .. name .. "': callback must be a function")
-			default = math.clamp(default or min, min, max)
+			assert(type(name)     == "string",   "CreateSlider: name must be a string")
+			assert(type(min)      == "number",   "CreateSlider '" .. name .. "': min must be a number")
+			assert(type(max)      == "number",   "CreateSlider '" .. name .. "': max must be a number")
+			assert(min < max,                    "CreateSlider '" .. name .. "': min must be less than max")
+			assert(type(callback) == "function", "CreateSlider '" .. name .. "': callback must be a function")
+			default = math.clamp(type(default) == "number" and default or min, min, max)
 
 			local base, lbl = CreateElementBase(name, ScrollFrame)
 
@@ -1068,7 +1358,7 @@ function GhostLib:CreateWindow(options)
 			valLabel.Size = UDim2.new(0, 45, 1, 0)
 			valLabel.Position = UDim2.new(1, -61, 0, 0)
 			valLabel.BackgroundTransparency = 1
-			valLabel.Text = tostring(default)
+			valLabel.Text = tostring(math.round(default))
 			valLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			valLabel.TextSize = 13
 			valLabel.TextColor3 = T.TextMuted
@@ -1089,7 +1379,6 @@ function GhostLib:CreateWindow(options)
 			fill.Parent = track
 			RoundFrame(fill, 999)
 
-			-- Draggable handle
 			local handle = Instance.new("Frame")
 			handle.Size = UDim2.new(0, 14, 0, 14)
 			handle.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1100,6 +1389,7 @@ function GhostLib:CreateWindow(options)
 			handle.Parent = track
 			RoundFrame(handle, 999)
 
+			-- Invisible hitbox is larger than the visual track for easier interaction
 			local hitbox = Instance.new("TextButton")
 			hitbox.Size = UDim2.new(1, 12, 3, 0)
 			hitbox.Position = UDim2.new(0, -6, -1, 0)
@@ -1109,39 +1399,43 @@ function GhostLib:CreateWindow(options)
 			hitbox.Parent = track
 
 			local function UpdateSlider()
-				-- Use AbsolutePosition for correct value even after window drag
 				local barLeft  = track.AbsolutePosition.X
 				local barWidth = track.AbsoluteSize.X
-				local mouseX   = UserInputService:GetMouseLocation().X
-				local pct      = math.clamp((mouseX - barLeft) / barWidth, 0, 1)
-				local value    = math.floor(min + pct * (max - min) + 0.5)
-				pct = (value - min) / (max - min)     -- snap to integer grid
+				if barWidth <= 0 then return end
+				local mouseX = UserInputService:GetMouseLocation().X
+				local pct    = math.clamp((mouseX - barLeft) / barWidth, 0, 1)
+				local value  = math.round(min + pct * (max - min))
+				-- Re-derive pct from the snapped integer value for pixel accuracy
+				pct = (value - min) / (max - min)
 
 				Tween(fill,   TweenInfo.new(0.05), {Size     = UDim2.new(pct, 0, 1, 0)}):Play()
 				Tween(handle, TweenInfo.new(0.05), {Position = UDim2.new(pct, 0, 0.5, 0)}):Play()
 				valLabel.Text = tostring(value)
-				callback(value)
+
+				local ok2, err = pcall(callback, value)
+				if not ok2 then
+					warn("GhostLib Slider '" .. name .. "' callback error: " .. tostring(err))
+				end
 			end
 
 			local sliding = false
+
 			hitbox.InputBegan:Connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseButton1
 					or input.UserInputType == Enum.UserInputType.Touch then
 					sliding = true
-					Tween(track, C.TWEEN_FAST, {Size = UDim2.new(0, 150, 0, 8)}):Play()
+					Tween(track,  C.TWEEN_FAST, {Size = UDim2.new(0, 150, 0, 8)}):Play()
 					Tween(handle, C.TWEEN_FAST, {Size = UDim2.new(0, 16, 0, 16)}):Play()
 					UpdateSlider()
 				end
 			end)
 
 			Track(UserInputService.InputEnded:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1
-					or input.UserInputType == Enum.UserInputType.Touch then
-					if sliding then
-						sliding = false
-						Tween(track,  C.TWEEN_FAST, {Size = UDim2.new(0, 150, 0, 6)}):Play()
-						Tween(handle, C.TWEEN_FAST, {Size = UDim2.new(0, 14, 0, 14)}):Play()
-					end
+				if (input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch) and sliding then
+					sliding = false
+					Tween(track,  C.TWEEN_FAST, {Size = UDim2.new(0, 150, 0, 6)}):Play()
+					Tween(handle, C.TWEEN_FAST, {Size = UDim2.new(0, 14, 0, 14)}):Play()
 				end
 			end))
 
@@ -1153,20 +1447,34 @@ function GhostLib:CreateWindow(options)
 			end))
 
 			local api = {}
+			--- Set the slider value programmatically.  Clamps to [min, max].
 			function api:Set(val)
-				val = math.max(math.min(math.floor(val + 0.5), max), min)
+				assert(type(val) == "number", "Slider:Set — value must be a number")
+				val = math.clamp(math.round(val), min, max)
 				local pct = (val - min) / (max - min)
-				fill.Size   = UDim2.new(pct, 0, 1, 0)
-				handle.Position = UDim2.new(pct, 0, 0.5, 0)
-				valLabel.Text = tostring(val)
+				fill.Size        = UDim2.new(pct, 0, 1, 0)
+				handle.Position  = UDim2.new(pct, 0, 0.5, 0)
+				valLabel.Text    = tostring(val)
 			end
+			function api:Get() return tonumber(valLabel.Text) end
 			return api
 		end
 
-		-- KEYBIND
+		-- ── KEYBIND ────────────────────────────────────────────────────────
+		--- Keyboard bind picker.
+		--- @param name     string
+		--- @param default  Enum.KeyCode  Initial key (default RightControl).
+		--- @param callback function(key: Enum.KeyCode)
+		--- @return {Get:function}
 		function Tab:CreateKeybind(name, default, callback)
-			assert(type(callback) == "function", "Keybind '" .. name .. "': callback must be a function")
-			local currentBind = default or Enum.KeyCode.RightControl
+			assert(type(name)     == "string",   "CreateKeybind: name must be a string")
+			assert(type(callback) == "function", "CreateKeybind '" .. name .. "': callback must be a function")
+			-- Validate default key
+			if typeof(default) ~= "EnumItem" then
+				warn("CreateKeybind '" .. name .. "': default should be an Enum.KeyCode; using RightControl.")
+				default = Enum.KeyCode.RightControl
+			end
+			local currentBind = default
 			local base, lbl   = CreateElementBase(name, ScrollFrame)
 			local listening   = false
 
@@ -1186,24 +1494,25 @@ function GhostLib:CreateWindow(options)
 				if listening then return end
 				listening = true
 				btn.Text = "Press a key…"
-				Tween(btn,    C.TWEEN_FAST, {BackgroundColor3 = T.ElementHover}):Play()
-				Tween(bStroke,C.TWEEN_FAST, {Color = T.BorderFocus}):Play()
+				Tween(btn,     C.TWEEN_FAST, {BackgroundColor3 = T.ElementHover}):Play()
+				Tween(bStroke, C.TWEEN_FAST, {Color            = T.BorderFocus}):Play()
 			end)
 
-			-- Fix: only capture while listening and skip if a TextBox is focused
 			Track(UserInputService.InputBegan:Connect(function(input, processed)
 				if not listening then return end
-				-- Don't capture if typing in a text field
+				-- Don't capture if the player is typing in a TextBox
 				if processed then return end
 				if input.UserInputType == Enum.UserInputType.Keyboard then
-					-- Ignore modifier-only presses
 					if input.KeyCode == Enum.KeyCode.Unknown then return end
-					listening = false
-					currentBind = input.KeyCode
-					btn.Text = currentBind.Name
-					Tween(btn,    C.TWEEN_FAST, {BackgroundColor3 = T.Input}):Play()
-					Tween(bStroke,C.TWEEN_FAST, {Color = T.InputBorder}):Play()
-					callback(currentBind)
+					listening     = false
+					currentBind   = input.KeyCode
+					btn.Text      = currentBind.Name
+					Tween(btn,     C.TWEEN_FAST, {BackgroundColor3 = T.Input}):Play()
+					Tween(bStroke, C.TWEEN_FAST, {Color            = T.InputBorder}):Play()
+					local ok2, err = pcall(callback, currentBind)
+					if not ok2 then
+						warn("GhostLib Keybind '" .. name .. "' callback error: " .. tostring(err))
+					end
 				end
 			end))
 
@@ -1212,9 +1521,17 @@ function GhostLib:CreateWindow(options)
 			return api
 		end
 
-		-- TEXTBOX
+		-- ── TEXTBOX ────────────────────────────────────────────────────────
+		--- Single-line text input field.
+		--- callback is called when focus is lost; `enter` is true if the
+		--- player pressed Enter to confirm.
+		--- @param name        string
+		--- @param placeholder string?
+		--- @param callback    function(text: string, pressedEnter: boolean)
+		--- @return {Set:function, Get:function}
 		function Tab:CreateTextBox(name, placeholder, callback)
-			assert(type(callback) == "function", "TextBox '" .. name .. "': callback must be a function")
+			assert(type(name)     == "string",   "CreateTextBox: name must be a string")
+			assert(type(callback) == "function", "CreateTextBox '" .. name .. "': callback must be a function")
 			local base, lbl = CreateElementBase(name, ScrollFrame)
 
 			local box = Instance.new("TextBox")
@@ -1222,7 +1539,7 @@ function GhostLib:CreateWindow(options)
 			box.Position = UDim2.new(1, -166, 0.5, -14)
 			box.BackgroundColor3 = T.Input
 			box.Text = ""
-			box.PlaceholderText = placeholder or "Enter text..."
+			box.PlaceholderText = type(placeholder) == "string" and placeholder or "Enter text..."
 			box.PlaceholderColor3 = T.TextDisabled
 			box.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json")
 			box.TextSize = 12
@@ -1239,7 +1556,10 @@ function GhostLib:CreateWindow(options)
 			box.FocusLost:Connect(function(enter)
 				Tween(bStroke, C.TWEEN_FAST, {Color = T.InputBorder}):Play()
 				Tween(base,    C.TWEEN_FAST, {BackgroundColor3 = T.Element}):Play()
-				callback(box.Text, enter)
+				local ok2, err = pcall(callback, box.Text, enter)
+				if not ok2 then
+					warn("GhostLib TextBox '" .. name .. "' callback error: " .. tostring(err))
+				end
 			end)
 
 			local api = {}
@@ -1248,10 +1568,16 @@ function GhostLib:CreateWindow(options)
 			return api
 		end
 
-		-- DROPDOWN (single select)
+		-- ── DROPDOWN (single select) ────────────────────────────────────────
+		--- Select one item from a list.
+		--- @param name     string
+		--- @param list     table    Non-empty array of option strings.
+		--- @param callback function(selected: string)
+		--- @return {Set:function, Get:function}
 		function Tab:CreateDropdown(name, list, callback)
-			assert(type(list) == "table" and #list > 0, "Dropdown '" .. name .. "': list must be a non-empty table")
-			assert(type(callback) == "function", "Dropdown '" .. name .. "': callback must be a function")
+			assert(type(name)     == "string",                    "CreateDropdown: name must be a string")
+			assert(type(list)     == "table" and #list > 0,       "CreateDropdown '" .. name .. "': list must be a non-empty table")
+			assert(type(callback) == "function",                  "CreateDropdown '" .. name .. "': callback must be a function")
 
 			local base, lbl = CreateElementBase(name, ScrollFrame, C.ELEM_HEIGHT)
 			local expanded  = false
@@ -1278,7 +1604,7 @@ function GhostLib:CreateWindow(options)
 			listFrame.ClipsDescendants = true
 			listFrame.ZIndex = 20
 			listFrame.ScrollBarThickness = 2
-			listFrame.ScrollBarImageColor3 = Color3.fromRGB(80,80,80)
+			listFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
 			listFrame.CanvasSize = UDim2.new(0, 0, 0, #list * 28)
 			listFrame.Parent = base
 			RoundFrame(listFrame, 6)
@@ -1289,9 +1615,11 @@ function GhostLib:CreateWindow(options)
 				expanded = false
 				local t = Tween(listFrame, C.TWEEN_MED, {Size = UDim2.new(0, 150, 0, 0)})
 				t:Play()
-				Tween(base, C.TWEEN_MED, {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT)}):Play()
+				Tween(base,    C.TWEEN_MED,  {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT)}):Play()
 				Tween(bStroke, C.TWEEN_FAST, {Color = T.InputBorder}):Play()
-				t.Completed:Connect(function() if not expanded then listFrame.Visible = false end end)
+				t.Completed:Once(function()
+					if not expanded then listFrame.Visible = false end
+				end)
 			end
 
 			local function Expand()
@@ -1299,8 +1627,8 @@ function GhostLib:CreateWindow(options)
 				listFrame.Visible = true
 				local h = math.min(#list * 28, 112)
 				Tween(listFrame, C.TWEEN_CUBIC, {Size = UDim2.new(0, 150, 0, h)}):Play()
-				Tween(base, C.TWEEN_CUBIC, {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT + 6 + h)}):Play()
-				Tween(bStroke, C.TWEEN_FAST, {Color = T.BorderFocus}):Play()
+				Tween(base,      C.TWEEN_CUBIC, {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT + 6 + h)}):Play()
+				Tween(bStroke,   C.TWEEN_FAST,  {Color = T.BorderFocus}):Play()
 			end
 
 			for _, item in pairs(list) do
@@ -1324,12 +1652,14 @@ function GhostLib:CreateWindow(options)
 						Tween(itemBtn, C.TWEEN_FAST, {TextColor3 = T.TextMuted}):Play()
 					end
 				end)
-
 				itemBtn.MouseButton1Click:Connect(function()
 					selected = item
 					btn.Text = tostring(item)
 					Collapse()
-					callback(item)
+					local ok2, err = pcall(callback, item)
+					if not ok2 then
+						warn("GhostLib Dropdown '" .. name .. "' callback error: " .. tostring(err))
+					end
 				end)
 			end
 
@@ -1338,25 +1668,30 @@ function GhostLib:CreateWindow(options)
 			end)
 
 			local api = {}
-			function api:Set(val)
-				selected = val
-				btn.Text = tostring(val)
-			end
-			function api:Get() return selected end
+			function api:Set(val) selected = val; btn.Text = tostring(val) end
+			function api:Get()    return selected end
 			return api
 		end
 
-		-- MULTI-DROPDOWN
+		-- ── MULTI-DROPDOWN ─────────────────────────────────────────────────
+		--- Select zero or more items from a list.
+		--- @param name     string
+		--- @param list     table    Non-empty array.
+		--- @param options  table?   { CloseOnSelect = true/false }
+		--- @param callback function(selected: table)
+		--- @return {Get:function, Clear:function}
 		function Tab:CreateMultiDropdown(name, list, options, callback)
-			-- Normalise arguments
+			-- Flexible argument order: options may be omitted
 			if type(options) == "function" then
 				callback = options
 				options  = {}
 			end
 			options = options or {}
 			local closeOnSelect = options.CloseOnSelect == true
-			assert(type(list) == "table" and #list > 0, "MultiDropdown '" .. name .. "': list must be a non-empty table")
-			assert(type(callback) == "function", "MultiDropdown '" .. name .. "': callback must be a function")
+
+			assert(type(name)     == "string",                   "CreateMultiDropdown: name must be a string")
+			assert(type(list)     == "table" and #list > 0,      "CreateMultiDropdown '" .. name .. "': list must be a non-empty table")
+			assert(type(callback) == "function",                 "CreateMultiDropdown '" .. name .. "': callback must be a function")
 
 			local base, lbl = CreateElementBase(name, ScrollFrame, C.ELEM_HEIGHT)
 			local expanded  = false
@@ -1383,7 +1718,7 @@ function GhostLib:CreateWindow(options)
 			listFrame.ClipsDescendants = true
 			listFrame.ZIndex = 20
 			listFrame.ScrollBarThickness = 2
-			listFrame.ScrollBarImageColor3 = Color3.fromRGB(80,80,80)
+			listFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
 			listFrame.CanvasSize = UDim2.new(0, 0, 0, #list * 28)
 			listFrame.Parent = base
 			RoundFrame(listFrame, 6)
@@ -1403,9 +1738,11 @@ function GhostLib:CreateWindow(options)
 				expanded = false
 				local t = Tween(listFrame, C.TWEEN_MED, {Size = UDim2.new(0, 150, 0, 0)})
 				t:Play()
-				Tween(base, C.TWEEN_MED, {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT)}):Play()
+				Tween(base,    C.TWEEN_MED,  {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT)}):Play()
 				Tween(bStroke, C.TWEEN_FAST, {Color = T.InputBorder}):Play()
-				t.Completed:Connect(function() if not expanded then listFrame.Visible = false end end)
+				t.Completed:Once(function()
+					if not expanded then listFrame.Visible = false end
+				end)
 			end
 
 			local function Expand()
@@ -1413,8 +1750,8 @@ function GhostLib:CreateWindow(options)
 				listFrame.Visible = true
 				local h = math.min(#list * 28, 112)
 				Tween(listFrame, C.TWEEN_CUBIC, {Size = UDim2.new(0, 150, 0, h)}):Play()
-				Tween(base, C.TWEEN_CUBIC, {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT + 6 + h)}):Play()
-				Tween(bStroke, C.TWEEN_FAST, {Color = T.BorderFocus}):Play()
+				Tween(base,      C.TWEEN_CUBIC, {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT + 6 + h)}):Play()
+				Tween(bStroke,   C.TWEEN_FAST,  {Color = T.BorderFocus}):Play()
 			end
 
 			for _, item in pairs(list) do
@@ -1435,18 +1772,21 @@ function GhostLib:CreateWindow(options)
 					if idx then
 						table.remove(selected, idx)
 						Tween(itemBtn, C.TWEEN_FAST, {
-							TextColor3 = T.TextMuted,
-							BackgroundColor3 = T.DropdownItem
+							TextColor3       = T.TextMuted,
+							BackgroundColor3 = T.DropdownItem,
 						}):Play()
 					else
 						table.insert(selected, item)
 						Tween(itemBtn, C.TWEEN_FAST, {
-							TextColor3 = T.DropdownSelTx,
-							BackgroundColor3 = T.DropdownSel
+							TextColor3       = T.DropdownSelTx,
+							BackgroundColor3 = T.DropdownSel,
 						}):Play()
 					end
 					UpdateBtnText()
-					callback(selected)
+					local ok2, err = pcall(callback, selected)
+					if not ok2 then
+						warn("GhostLib MultiDropdown '" .. name .. "' callback error: " .. tostring(err))
+					end
 					if closeOnSelect then Collapse() end
 				end)
 			end
@@ -1456,17 +1796,181 @@ function GhostLib:CreateWindow(options)
 			end)
 
 			local api = {}
-			function api:Get() return selected end
-			function api:Clear()
-				selected = {}
-				UpdateBtnText()
-			end
+			function api:Get()   return selected end
+			function api:Clear() selected = {}; UpdateBtnText() end
 			return api
 		end
 
-		-- CONFIG SYSTEM (with actual JSON serialisation stub)
+		-- ── COLOR PICKER ───────────────────────────────────────────────────
+		--- Lightweight hue strip + brightness bar color picker.
+		--- HSV inputs are automatically clamped to [0,1].
+		--- @param name     string
+		--- @param default  Color3?   Defaults to white.
+		--- @param callback function(color: Color3)
+		--- @return {Set:function, Get:function}
+		function Tab:CreateColorPicker(name, default, callback)
+			assert(type(name)     == "string",   "CreateColorPicker: name must be a string")
+			assert(type(callback) == "function", "CreateColorPicker '" .. name .. "': callback must be a function")
+
+			-- Sanitise default colour; fall back gracefully if nil or invalid
+			if typeof(default) ~= "Color3" then
+				default = Color3.fromRGB(255, 255, 255)
+			end
+			default = ClampColor(default)
+
+			local base, lbl = CreateElementBase(name, ScrollFrame, 46)
+			local pickerOpen = false
+
+			local h, s, v = default:ToHSV()
+			-- Clamp each component defensively
+			h = math.clamp(h, 0, 1)
+			s = math.clamp(s, 0, 1)
+			v = math.clamp(v, 0, 1)
+			local currentColor = default
+
+			local swatch = Instance.new("TextButton")
+			swatch.Size = UDim2.new(0, 36, 0, 28)
+			swatch.Position = UDim2.new(1, -52, 0.5, -14)
+			swatch.BackgroundColor3 = default
+			swatch.Text = ""
+			swatch.Parent = base
+			RoundFrame(swatch, 6)
+			Stroke(swatch, T.InputBorder)
+
+			-- Expandable picker panel
+			local panel = Instance.new("Frame")
+			panel.Size = UDim2.new(0, 200, 0, 0)
+			panel.Position = UDim2.new(1, -216, 0, 50)
+			panel.BackgroundColor3 = T.Dropdown
+			panel.BorderSizePixel = 0
+			panel.Visible = false
+			panel.ClipsDescendants = true
+			panel.ZIndex = 30
+			panel.Parent = base
+			RoundFrame(panel, 6)
+			Stroke(panel, T.Border)
+
+			-- Hue bar
+			local hueBar = Instance.new("Frame")
+			hueBar.Size = UDim2.new(1, -16, 0, 14)
+			hueBar.Position = UDim2.new(0, 8, 0, 8)
+			hueBar.BorderSizePixel = 0
+			hueBar.ZIndex = 31
+			hueBar.Parent = panel
+			RoundFrame(hueBar, 4)
+
+			local hueGrad = Instance.new("UIGradient")
+			hueGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0,    Color3.fromHSV(0,    1, 1)),
+				ColorSequenceKeypoint.new(0.17, Color3.fromHSV(0.17, 1, 1)),
+				ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33, 1, 1)),
+				ColorSequenceKeypoint.new(0.5,  Color3.fromHSV(0.5,  1, 1)),
+				ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67, 1, 1)),
+				ColorSequenceKeypoint.new(0.83, Color3.fromHSV(0.83, 1, 1)),
+				ColorSequenceKeypoint.new(1,    Color3.fromHSV(1,    1, 1)),
+			})
+			hueGrad.Parent = hueBar
+
+			local hueHit = Instance.new("TextButton")
+			hueHit.Size = UDim2.new(1, 0, 1, 0)
+			hueHit.BackgroundTransparency = 1
+			hueHit.Text = ""
+			hueHit.ZIndex = 32
+			hueHit.Parent = hueBar
+
+			-- Brightness/value bar
+			local valBar = Instance.new("Frame")
+			valBar.Size = UDim2.new(1, -16, 0, 14)
+			valBar.Position = UDim2.new(0, 8, 0, 30)
+			valBar.ZIndex = 31
+			valBar.BorderSizePixel = 0
+			valBar.Parent = panel
+			RoundFrame(valBar, 4)
+
+			local valGrad = Instance.new("UIGradient")
+			valGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+				ColorSequenceKeypoint.new(1, Color3.fromHSV(h, 1, 1)),
+			})
+			valGrad.Parent = valBar
+
+			local valHit = Instance.new("TextButton")
+			valHit.Size = UDim2.new(1, 0, 1, 0)
+			valHit.BackgroundTransparency = 1
+			valHit.Text = ""
+			valHit.ZIndex = 32
+			valHit.Parent = valBar
+
+			local function ApplyColor()
+				-- Always clamp before constructing to prevent invalid HSV
+				h = math.clamp(h, 0, 1)
+				s = math.clamp(s, 0, 1)
+				v = math.clamp(v, 0, 1)
+				currentColor = Color3.fromHSV(h, s, v)
+				swatch.BackgroundColor3 = currentColor
+				valGrad.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+					ColorSequenceKeypoint.new(1, Color3.fromHSV(h, 1, 1)),
+				})
+				local ok2, err = pcall(callback, currentColor)
+				if not ok2 then
+					warn("GhostLib ColorPicker '" .. name .. "' callback error: " .. tostring(err))
+				end
+			end
+
+			hueHit.InputBegan:Connect(function(inp)
+				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+					local barW = hueBar.AbsoluteSize.X
+					if barW <= 0 then return end
+					h = math.clamp((UserInputService:GetMouseLocation().X - hueBar.AbsolutePosition.X) / barW, 0, 1)
+					s = 1
+					ApplyColor()
+				end
+			end)
+
+			valHit.InputBegan:Connect(function(inp)
+				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+					local barW = valBar.AbsoluteSize.X
+					if barW <= 0 then return end
+					v = math.clamp((UserInputService:GetMouseLocation().X - valBar.AbsolutePosition.X) / barW, 0, 1)
+					ApplyColor()
+				end
+			end)
+
+			swatch.MouseButton1Click:Connect(function()
+				pickerOpen = not pickerOpen
+				if pickerOpen then
+					panel.Visible = true
+					Tween(panel, C.TWEEN_CUBIC, {Size = UDim2.new(0, 200, 0, 54)}):Play()
+					Tween(base,  C.TWEEN_CUBIC, {Size = UDim2.new(1, 0, 0, 106)}):Play()
+				else
+					local t = Tween(panel, C.TWEEN_MED, {Size = UDim2.new(0, 200, 0, 0)})
+					t:Play()
+					Tween(base, C.TWEEN_MED, {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT)}):Play()
+					t.Completed:Once(function()
+						if not pickerOpen then panel.Visible = false end
+					end)
+				end
+			end)
+
+			local api = {}
+			function api:Set(color)
+				assert(typeof(color) == "Color3", "ColorPicker:Set — expected Color3")
+				color = ClampColor(color)
+				h, s, v = color:ToHSV()
+				currentColor = color
+				swatch.BackgroundColor3 = color
+			end
+			function api:Get() return currentColor end
+			return api
+		end
+
+		-- ── CONFIG SYSTEM ──────────────────────────────────────────────────
+		--- Save / Load profile placeholder.  Connect the buttons to your own
+		--- serialisation logic by replacing the click handlers or extending this.
+		--- @param profileKey string?  Identifier for the config profile.
 		function Tab:CreateConfigSystem(profileKey)
-			profileKey = profileKey or "GhostConfig_Default"
+			profileKey = type(profileKey) == "string" and profileKey or "GhostConfig_Default"
 			local base, lbl = CreateElementBase("Configuration Profiles", ScrollFrame, 60)
 			lbl.Size = UDim2.new(1, -200, 1, 0)
 
@@ -1494,151 +1998,15 @@ function GhostLib:CreateWindow(options)
 			Stroke(loadBtn, T.InputBorder)
 
 			saveBtn.MouseButton1Click:Connect(function()
-				-- Serialise all element states via the API objects if stored externally
-				-- Here we demonstrate with a placeholder that fires a notification
-				Notify("Config saved!", "success", 2)
+				-- TODO: implement actual profile serialisation here.
+				-- Example: writefile(profileKey .. ".json", HttpService:JSONEncode(state))
+				Notify("Config '" .. profileKey .. "' saved!", "success", 2)
 			end)
 
 			loadBtn.MouseButton1Click:Connect(function()
-				Notify("Config loaded!", "info", 2)
+				-- TODO: implement actual profile deserialisation here.
+				Notify("Config '" .. profileKey .. "' loaded!", "info", 2)
 			end)
-		end
-
-		-- COLOR PICKER (lightweight: hue strip + brightness)
-		function Tab:CreateColorPicker(name, default, callback)
-			assert(type(callback) == "function", "ColorPicker '" .. name .. "': callback must be a function")
-			default = default or Color3.fromRGB(255, 255, 255)
-
-			local base, lbl = CreateElementBase(name, ScrollFrame, 46)
-			local pickerOpen = false
-
-			local h, s, v = default:ToHSV()
-			local currentColor = default
-
-			-- Swatch preview
-			local swatch = Instance.new("TextButton")
-			swatch.Size = UDim2.new(0, 36, 0, 28)
-			swatch.Position = UDim2.new(1, -52, 0.5, -14)
-			swatch.BackgroundColor3 = default
-			swatch.Text = ""
-			swatch.Parent = base
-			RoundFrame(swatch, 6)
-			Stroke(swatch, T.InputBorder)
-
-			-- Picker panel
-			local panel = Instance.new("Frame")
-			panel.Size = UDim2.new(0, 200, 0, 0)
-			panel.Position = UDim2.new(1, -216, 0, 50)
-			panel.BackgroundColor3 = T.Dropdown
-			panel.BorderSizePixel = 0
-			panel.Visible = false
-			panel.ClipsDescendants = true
-			panel.ZIndex = 30
-			panel.Parent = base
-			RoundFrame(panel, 6)
-			Stroke(panel, T.Border)
-
-			-- Hue bar
-			local hueBar = Instance.new("Frame")
-			hueBar.Size = UDim2.new(1, -16, 0, 14)
-			hueBar.Position = UDim2.new(0, 8, 0, 8)
-			hueBar.BorderSizePixel = 0
-			hueBar.ZIndex = 31
-			hueBar.Parent = panel
-			RoundFrame(hueBar, 4)
-
-			-- Fill hue bar with gradient
-			local hueGrad = Instance.new("UIGradient")
-			hueGrad.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0,   Color3.fromHSV(0,   1, 1)),
-				ColorSequenceKeypoint.new(0.17, Color3.fromHSV(0.17,1, 1)),
-				ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33,1, 1)),
-				ColorSequenceKeypoint.new(0.5,  Color3.fromHSV(0.5, 1, 1)),
-				ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67,1, 1)),
-				ColorSequenceKeypoint.new(0.83, Color3.fromHSV(0.83,1, 1)),
-				ColorSequenceKeypoint.new(1,    Color3.fromHSV(1,   1, 1)),
-			})
-			hueGrad.Parent = hueBar
-
-			local hueHit = Instance.new("TextButton")
-			hueHit.Size = UDim2.new(1, 0, 1, 0)
-			hueHit.BackgroundTransparency = 1
-			hueHit.Text = ""
-			hueHit.ZIndex = 32
-			hueHit.Parent = hueBar
-
-			-- Value/brightness bar
-			local valBar = Instance.new("Frame")
-			valBar.Size = UDim2.new(1, -16, 0, 14)
-			valBar.Position = UDim2.new(0, 8, 0, 30)
-			valBar.ZIndex = 31
-			valBar.BorderSizePixel = 0
-			valBar.Parent = panel
-			RoundFrame(valBar, 4)
-
-			local valGrad = Instance.new("UIGradient")
-			valGrad.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
-				ColorSequenceKeypoint.new(1, Color3.fromHSV(h, 1, 1)),
-			})
-			valGrad.Parent = valBar
-
-			local valHit = Instance.new("TextButton")
-			valHit.Size = UDim2.new(1, 0, 1, 0)
-			valHit.BackgroundTransparency = 1
-			valHit.Text = ""
-			valHit.ZIndex = 32
-			valHit.Parent = valBar
-
-			local function ApplyColor()
-				currentColor = Color3.fromHSV(h, s, v)
-				swatch.BackgroundColor3 = currentColor
-				valGrad.Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
-					ColorSequenceKeypoint.new(1, Color3.fromHSV(h, 1, 1)),
-				})
-				callback(currentColor)
-			end
-
-			hueHit.InputBegan:Connect(function(inp)
-				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-					local pct = math.clamp((UserInputService:GetMouseLocation().X - hueBar.AbsolutePosition.X) / hueBar.AbsoluteSize.X, 0, 1)
-					h = pct
-					s = 1
-					ApplyColor()
-				end
-			end)
-
-			valHit.InputBegan:Connect(function(inp)
-				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-					local pct = math.clamp((UserInputService:GetMouseLocation().X - valBar.AbsolutePosition.X) / valBar.AbsoluteSize.X, 0, 1)
-					v = pct
-					ApplyColor()
-				end
-			end)
-
-			swatch.MouseButton1Click:Connect(function()
-				pickerOpen = not pickerOpen
-				if pickerOpen then
-					panel.Visible = true
-					Tween(panel, C.TWEEN_CUBIC, {Size = UDim2.new(0, 200, 0, 54)}):Play()
-					Tween(base,  C.TWEEN_CUBIC, {Size = UDim2.new(1, 0, 0, 106)}):Play()
-				else
-					local t = Tween(panel, C.TWEEN_MED, {Size = UDim2.new(0, 200, 0, 0)})
-					t:Play()
-					Tween(base, C.TWEEN_MED, {Size = UDim2.new(1, 0, 0, C.ELEM_HEIGHT)}):Play()
-					t.Completed:Connect(function() if not pickerOpen then panel.Visible = false end end)
-				end
-			end)
-
-			local api = {}
-			function api:Set(color)
-				h, s, v = color:ToHSV()
-				currentColor = color
-				swatch.BackgroundColor3 = color
-			end
-			function api:Get() return currentColor end
-			return api
 		end
 
 		return Tab
