@@ -1,1 +1,183 @@
 
+-- This script must be placed directly inside a standard 'Script' in Workspace.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+
+-- Fetch the Luna Library source dynamically
+
+local Luna = loadstring(game:HttpGet("https://raw.nebulasoftworks.xyz/luna", true))()
+
+
+-- Locate the Remote Events
+local RemoteService = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Shared"):WaitForChild("RemoteEventService")
+local RebirthEvent = RemoteService:WaitForChild("RebirthRemoteEvent")
+local EvolutionEvent = RemoteService:WaitForChild("EvolutionRemoteEvent")
+local SpeedEvent = RemoteService:WaitForChild("AddSpeedRemoteEvent")
+
+-- Anti-AFK Setup
+local VirtualUser = game:GetService("VirtualUser")
+Players.PlayerAdded:Connect(function(player)
+    player.Idled:Connect(function()
+        VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(0.5)
+        VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end)
+end)
+
+local function initGuiForPlayer(player)
+    -- Ensure this runs for the local player instance
+    if player ~= Players.LocalPlayer then return end
+
+    -- Create Window
+    local Window = Luna:CreateWindow({
+        Name = "EZ GUI 🦊",
+        Icon = "rbxassetid://4483345998" -- Optional default icon placeholder
+    })
+
+    -- Create Tabs
+    local MainTab = Window:CreateTab({ Name = "Main Farms" })
+    local AutomationTab = Window:CreateTab({ Name = "Automation" })
+
+    -- State variables
+    local States = {
+        Farm1 = false,
+        Farm2 = false,
+        Farm3 = false,
+        Rebirth = false,
+        Evolve = false,
+        Speed = false
+    }
+
+    -- ==========================================
+    -- MAIN TAB: WORLD FARMS & SPEED
+    -- ==========================================
+
+    MainTab:CreateToggle({
+        Name = "Auto Win (World 1)",
+        Default = false,
+        Callback = function(Value)
+            States.Farm1 = Value
+            if States.Farm1 then
+                task.spawn(function()
+                    while States.Farm1 do
+                        pcall(function()
+                            local Target = workspace:WaitForChild("Wins"):WaitForChild("14")
+                            local char = player.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                char.HumanoidRootPart.CFrame = Target:IsA("Model") and Target:GetPivot() or Target.CFrame
+                            end
+                        end)
+                        task.wait(1.6)
+                    end
+                end)
+            end
+        end
+    })
+
+    MainTab:CreateToggle({
+        Name = "Auto Win (World 2)",
+        Default = false,
+        Callback = function(Value)
+            States.Farm2 = Value
+            if States.Farm2 then
+                task.spawn(function()
+                    while States.Farm2 do
+                        pcall(function()
+                            local char = player.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                char.HumanoidRootPart.CFrame = CFrame.new(11909, 188, 972)
+                            end
+                        end)
+                        task.wait(1.6)
+                    end
+                end)
+            end
+        end
+    })
+
+    MainTab:CreateToggle({
+        Name = "Auto Win (World 3)",
+        Default = false,
+        Callback = function(Value)
+            States.Farm3 = Value
+            if States.Farm3 then
+                task.spawn(function()
+                    while States.Farm3 do
+                        pcall(function()
+                            local char = player.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                char.HumanoidRootPart.CFrame = CFrame.new(1925, 15, 1)
+                            end
+                        end)
+                        task.wait(1.6)
+                    end
+                end)
+            end
+        end
+    })
+
+    MainTab:CreateToggle({
+        Name = "Best Legal Speed Gain",
+        Default = false,
+        Callback = function(Value)
+            States.Speed = Value
+            if States.Speed then
+                task.spawn(function()
+                    while States.Speed do
+                        pcall(function() 
+                            SpeedEvent:FireServer() 
+                        end)
+                        task.wait(0.05)
+                    end
+                end)
+            end
+        end
+    })
+
+    -- ==========================================
+    -- AUTOMATION TAB: REBIRTH & EVOLVE
+    -- ==========================================
+
+    AutomationTab:CreateToggle({
+        Name = "Auto Rebirth",
+        Default = false,
+        Callback = function(Value)
+            States.Rebirth = Value
+            if States.Rebirth then
+                task.spawn(function()
+                    while States.Rebirth do
+                        pcall(function() 
+                            RebirthEvent:FireServer() 
+                        end)
+                        task.wait(0.5)
+                    end
+                end)
+            end
+        end
+    })
+
+    AutomationTab:CreateToggle({
+        Name = "Auto Evolve",
+        Default = false,
+        Callback = function(Value)
+            States.Evolve = Value
+            if States.Evolve then
+                task.spawn(function()
+                    while States.Evolve do
+                        pcall(function() 
+                            EvolutionEvent:FireServer({Action = "Evolve"}) 
+                        end)
+                        task.wait(1.2)
+                    end
+                end)
+            end
+        end
+    })
+end
+
+-- Initialize for existing and new players safely
+for _, p in pairs(Players:GetPlayers()) do 
+    task.spawn(initGuiForPlayer, p) 
+end
+Players.PlayerAdded:Connect(initGuiForPlayer)
